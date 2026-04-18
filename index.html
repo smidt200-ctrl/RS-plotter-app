@@ -3,13 +3,31 @@
 <head>
   <title>RS Plotter App</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
   <style>
-    html, body { margin:0; height:100%; }
-    #map { height:100%; }
+    html, body {
+      margin: 0;
+      height: 100%;
+    }
+    #map {
+      height: 100%;
+    }
+    #btn {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 1000;
+      background: white;
+      padding: 10px;
+      border-radius: 8px;
+      font-weight: bold;
+    }
   </style>
 </head>
+
 <body>
 
+<div id="btn">📍 Get My Location</div>
 <div id="map"></div>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
@@ -17,29 +35,43 @@
 
 <script>
 var map = L.map('map').setView([-33.9, 18.4], 7);
-  navigator.geolocation.watchPosition(function(position) {
-  var lat = position.coords.latitude;
-  var lon = position.coords.longitude;
-
-  L.marker([lat, lon]).addTo(map)
-    .bindPopup("You are here")
-    .openPopup();
-
-  map.setView([lat, lon], 13);
-
-}, function(error) {
-  alert("GPS error: " + error.message);
-}, {
-  enableHighAccuracy: true
-});
 
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom: 18
 }).addTo(map);
 
-map.on('click', function(e) {
-  alert("Lat: " + e.latlng.lat + " | Lon: " + e.latlng.lng);
-});
+var marker;
+
+// BUTTON CLICK → ASK FOR LOCATION
+document.getElementById("btn").onclick = function() {
+
+  if (!navigator.geolocation) {
+    alert("Geolocation not supported on this device");
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(function(position) {
+
+    var lat = position.coords.latitude;
+    var lon = position.coords.longitude;
+
+    if (marker) {
+      map.removeLayer(marker);
+    }
+
+    marker = L.marker([lat, lon]).addTo(map)
+      .bindPopup("You are here")
+      .openPopup();
+
+    map.setView([lat, lon], 13);
+
+  }, function(error) {
+    alert("Location error: " + error.message);
+  }, {
+    enableHighAccuracy: true
+  });
+
+};
 </script>
 
 </body>
