@@ -4,23 +4,32 @@
   <title>RS Plotter App</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <style>
-    html, body { margin:0; height:100%; }
-    #map { height:100%; }
-    #btn {
-      position:absolute;
-      top:10px;
-      left:10px;
-      z-index:1000;
-      background:white;
-      padding:10px;
-      border-radius:8px;
-    }
-  </style>
-
   <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 
+  <style>
+    html, body {
+      margin: 0;
+      height: 100%;
+    }
+
+    #map {
+      height: 100%;
+      width: 100%;
+    }
+
+    #btn {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 1000;
+      background: white;
+      padding: 10px;
+      border-radius: 8px;
+      font-weight: bold;
+      box-shadow: 0 0 5px rgba(0,0,0,0.3);
+    }
+  </style>
 </head>
 
 <body>
@@ -33,35 +42,53 @@
 
 <script>
 
-// CREATE MAP
-var map = L.map('map').setView([-33.9, 18.4], 7);
+// Wait until page fully loads
+window.onload = function() {
 
-// ONLINE MAP (to ensure it works)
-L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  maxZoom: 18
-}).addTo(map);
+  // Create map
+  var map = L.map('map').setView([-33.9, 18.4], 7);
 
-// GPS
-var marker;
+  // Add map tiles (always works)
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 18
+  }).addTo(map);
 
-document.getElementById("btn").onclick = function() {
+  // Fix white screen bug
+  setTimeout(function() {
+    map.invalidateSize();
+  }, 500);
 
-  navigator.geolocation.getCurrentPosition(function(position) {
+  // GPS marker
+  var marker;
 
-    var lat = position.coords.latitude;
-    var lon = position.coords.longitude;
+  // Button click
+  document.getElementById("btn").onclick = function() {
 
-    if (marker) map.removeLayer(marker);
+    if (!navigator.geolocation) {
+      alert("GPS not supported");
+      return;
+    }
 
-    marker = L.marker([lat, lon]).addTo(map)
-      .bindPopup("You are here")
-      .openPopup();
+    navigator.geolocation.getCurrentPosition(function(position) {
 
-    map.setView([lat, lon], 13);
+      var lat = position.coords.latitude;
+      var lon = position.coords.longitude;
 
-  }, function(err) {
-    alert(err.message);
-  });
+      if (marker) {
+        map.removeLayer(marker);
+      }
+
+      marker = L.marker([lat, lon]).addTo(map)
+        .bindPopup("You are here")
+        .openPopup();
+
+      map.setView([lat, lon], 13);
+
+    }, function(error) {
+      alert("Location error: " + error.message);
+    });
+
+  };
 
 };
 
