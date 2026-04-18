@@ -143,6 +143,10 @@
 
 // MAP
 var light = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png');
+  var seamap = L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png', {
+  maxZoom: 18,
+  attribution: "© OpenSeaMap"
+});
 var dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png');
 
 var map = L.map('map',{center:[-33.9,18.4],zoom:7,layers:[light]});
