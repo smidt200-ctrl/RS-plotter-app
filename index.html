@@ -23,9 +23,8 @@
     #top { top:10px; }
     #search { top:60px; }
 
-    .boat-icon {
-      width: 40px;
-      height: 40px;
+    .boat {
+      font-size: 28px;
       transform-origin: center;
     }
   </style>
@@ -51,26 +50,25 @@
 
 // ===== MAP =====
 var map = L.map('map').setView([-33.9, 18.4], 7);
-
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
 // ===== ICONS =====
-
-// REAL BOAT ICON (fixed)
 var boatIcon = L.divIcon({
-  html: '<img src="https://upload.wikimedia.org/wikipedia/commons/3/3a/Boat_icon.png" class="boat-icon" id="boat">',
-  iconSize: [40, 40],
+  html: '<div class="boat" id="boat">🛥️</div>',
+  iconSize: [30,30],
   className: ''
 });
 
-var startIcon = L.icon({
-  iconUrl: 'https://cdn-icons-png.flaticon.com/512/190/190411.png',
-  iconSize: [30, 30]
+var startIcon = L.divIcon({
+  html: '<div style="font-size:20px;">🟢</div>',
+  iconSize: [20,20],
+  className: ''
 });
 
-var finishIcon = L.icon({
-  iconUrl: 'https://cdn-icons-png.flaticon.com/512/684/684908.png',
-  iconSize: [30, 30]
+var finishIcon = L.divIcon({
+  html: '<div style="font-size:20px;">🚩</div>',
+  iconSize: [20,20],
+  className: ''
 });
 
 // ===== DATA =====
@@ -86,6 +84,12 @@ if (localStorage.getItem("track")) {
   trackPoints = JSON.parse(localStorage.getItem("track"));
   trackLine = L.polyline(trackPoints, {color:'red'}).addTo(map);
 }
+
+// ===== ROUTE =====
+var routePoints = [];
+var routeLine;
+var startMarker;
+var endMarker;
 
 // ===== GPS =====
 function startTracking() {
@@ -103,27 +107,31 @@ function startTracking() {
       heading = pos.coords.heading;
     }
 
+    // BOAT
     if (!gpsMarker) {
       gpsMarker = L.marker([lat, lon], {icon: boatIcon}).addTo(map);
     } else {
       gpsMarker.setLatLng([lat, lon]);
     }
 
-    // ROTATE BOAT
+    // ROTATE
     setTimeout(function() {
       var boat = document.getElementById("boat");
       if (boat) {
         boat.style.transform = "rotate(" + heading + "deg)";
       }
-    }, 100);
+    }, 50);
 
-    // SAVE TRACK
+    // TRACK SAVE
     var point = [lat, lon];
     trackPoints.push(point);
     localStorage.setItem("track", JSON.stringify(trackPoints));
 
     if (trackLine) map.removeLayer(trackLine);
     trackLine = L.polyline(trackPoints, {color:'red'}).addTo(map);
+
+    // 🔥 UPDATE ETA LIVE
+    updateETA();
 
   }, function(err) {
     alert(err.message);
@@ -132,12 +140,7 @@ function startTracking() {
   });
 }
 
-// ===== ROUTE =====
-var routePoints = [];
-var routeLine;
-var startMarker;
-var endMarker;
-
+// ===== CLICK ROUTE =====
 map.on('click', function(e) {
 
   routePoints.push(e.latlng);
@@ -145,40 +148,17 @@ map.on('click', function(e) {
   if (routeLine) map.removeLayer(routeLine);
   routeLine = L.polyline(routePoints, {color:'blue'}).addTo(map);
 
-  // START
   if (routePoints.length === 1) {
-    startMarker = L.marker(e.latlng, {icon: startIcon}).addTo(map)
-      .bindPopup("START");
+    startMarker = L.marker(e.latlng, {icon:startIcon}).addTo(map);
   }
 
-  // FINISH + ETA
   if (routePoints.length > 1) {
-
     if (endMarker) map.removeLayer(endMarker);
 
-    var last = routePoints[routePoints.length - 1];
-
-    var distance = calculateDistance(routePoints);
-
-    var etaText;
-
-    if (speed > 1) {
-      var eta = distance / speed;
-      var minutes = Math.round(eta * 60);
-      etaText = minutes + " min";
-    } else {
-      etaText = "Waiting for speed...";
-    }
-
-    endMarker = L.marker(last, {icon: finishIcon}).addTo(map)
-      .bindPopup(
-        "FINISH 🚩<br>" +
-        "Distance: " + distance.toFixed(2) + " km<br>" +
-        "Speed: " + speed.toFixed(1) + " km/h<br>" +
-        "ETA: " + etaText
-      );
+    endMarker = L.marker(e.latlng, {icon:finishIcon}).addTo(map);
   }
 
+  updateETA();
 });
 
 // ===== DISTANCE =====
@@ -188,6 +168,29 @@ function calculateDistance(points) {
     total += map.distance(points[i-1], points[i]);
   }
   return total / 1000;
+}
+
+// ===== UPDATE ETA =====
+function updateETA() {
+
+  if (routePoints.length < 2 || !endMarker) return;
+
+  var distance = calculateDistance(routePoints);
+
+  var etaText = "Waiting for speed...";
+
+  if (speed > 1) {
+    var eta = distance / speed;
+    var minutes = Math.round(eta * 60);
+    etaText = minutes + " min";
+  }
+
+  endMarker.bindPopup(
+    "🚩 FINISH<br>" +
+    "Distance: " + distance.toFixed(2) + " km<br>" +
+    "Speed: " + speed.toFixed(1) + " km/h<br>" +
+    "ETA: " + etaText
+  );
 }
 
 // ===== CLEAR =====
