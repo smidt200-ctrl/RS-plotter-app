@@ -22,6 +22,12 @@
 
     #top { top:10px; }
     #search { top:60px; }
+
+    .boat-icon {
+      width: 40px;
+      height: 40px;
+      transform-origin: center;
+    }
   </style>
 </head>
 
@@ -48,7 +54,13 @@ var map = L.map('map').setView([-33.9, 18.4], 7);
 
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-// ===== CUSTOM ICONS =====
+// ===== ICONS =====
+var boatIcon = L.divIcon({
+  html: '<img src="https://cdn-icons-png.flaticon.com/512/1995/1995574.png" class="boat-icon" id="boat">',
+  iconSize: [40, 40],
+  className: ''
+});
+
 var startIcon = L.icon({
   iconUrl: 'https://cdn-icons-png.flaticon.com/512/190/190411.png',
   iconSize: [30, 30]
@@ -59,9 +71,10 @@ var finishIcon = L.icon({
   iconSize: [30, 30]
 });
 
-// ===== GPS DATA =====
+// ===== DATA =====
 var gpsMarker;
 var speed = 0;
+var heading = 0;
 
 // ===== TRACK =====
 var trackPoints = [];
@@ -84,13 +97,26 @@ function startTracking() {
       speed = pos.coords.speed * 3.6;
     }
 
+    if (pos.coords.heading !== null) {
+      heading = pos.coords.heading;
+    }
+
+    // CREATE / UPDATE BOAT
     if (!gpsMarker) {
-      gpsMarker = L.marker([lat, lon]).addTo(map)
-        .bindPopup("You");
+      gpsMarker = L.marker([lat, lon], {icon: boatIcon}).addTo(map);
     } else {
       gpsMarker.setLatLng([lat, lon]);
     }
 
+    // ROTATE BOAT
+    setTimeout(function() {
+      var boat = document.getElementById("boat");
+      if (boat) {
+        boat.style.transform = "rotate(" + heading + "deg)";
+      }
+    }, 100);
+
+    // SAVE TRACK
     var point = [lat, lon];
     trackPoints.push(point);
     localStorage.setItem("track", JSON.stringify(trackPoints));
@@ -118,13 +144,11 @@ map.on('click', function(e) {
   if (routeLine) map.removeLayer(routeLine);
   routeLine = L.polyline(routePoints, {color:'blue'}).addTo(map);
 
-  // START ICON
   if (routePoints.length === 1) {
     startMarker = L.marker(e.latlng, {icon: startIcon}).addTo(map)
-      .bindPopup("START").openPopup();
+      .bindPopup("START");
   }
 
-  // FINISH ICON + ETA
   if (routePoints.length > 1) {
 
     if (endMarker) map.removeLayer(endMarker);
@@ -147,7 +171,7 @@ map.on('click', function(e) {
         "Distance: " + distance.toFixed(2) + " km<br>" +
         "Speed: " + speed.toFixed(1) + " km/h<br>" +
         "ETA: " + etaText
-      ).openPopup();
+      );
   }
 
 });
