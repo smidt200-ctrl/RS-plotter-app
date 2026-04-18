@@ -56,10 +56,23 @@
 var map = L.map('map').setView([-33.9, 18.4], 7);
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-// ===== BOAT ICON =====
+// ===== BOAT =====
 var boatIcon = L.divIcon({
   html: '<div class="boat" id="boat"></div>',
   iconSize: [20,20],
+  className: ''
+});
+
+// ===== ICONS =====
+var startIcon = L.divIcon({
+  html: '<div style="font-size:18px;">🟢</div>',
+  iconSize: [18,18],
+  className: ''
+});
+
+var finishIcon = L.divIcon({
+  html: '<div style="font-size:18px;">🚩</div>',
+  iconSize: [18,18],
   className: ''
 });
 
@@ -107,7 +120,7 @@ function startTracking() {
       gpsMarker.setLatLng([lat, lon]);
     }
 
-    // ROTATE TRIANGLE
+    // ROTATE
     setTimeout(function() {
       var boat = document.getElementById("boat");
       if (boat) {
@@ -115,11 +128,11 @@ function startTracking() {
       }
     }, 50);
 
-    // ===== HEADING LINE (1 HOUR) =====
+    // HEADING LINE (1 hour)
     if (headingLine) map.removeLayer(headingLine);
 
     if (speed > 1) {
-      var distanceKm = speed * 1; // 1 hour distance
+      var distanceKm = speed;
       var dest = destinationPoint(lat, lon, heading, distanceKm);
 
       headingLine = L.polyline([[lat, lon], dest], {
@@ -145,7 +158,7 @@ function startTracking() {
   });
 }
 
-// ===== ROUTE CLICK =====
+// ===== CLICK ROUTE =====
 map.on('click', function(e) {
 
   routePoints.push(e.latlng);
@@ -153,15 +166,18 @@ map.on('click', function(e) {
   if (routeLine) map.removeLayer(routeLine);
   routeLine = L.polyline(routePoints, {color:'blue'}).addTo(map);
 
+  // START MARKER
   if (routePoints.length === 1) {
-    startMarker = L.marker(e.latlng).addTo(map)
+    startMarker = L.marker(e.latlng, {icon:startIcon}).addTo(map)
       .bindPopup("START");
   }
 
+  // FINISH MARKER
   if (routePoints.length > 1) {
+
     if (endMarker) map.removeLayer(endMarker);
 
-    endMarker = L.marker(e.latlng).addTo(map);
+    endMarker = L.marker(e.latlng, {icon:finishIcon}).addTo(map);
   }
 
   updateETA();
