@@ -36,6 +36,7 @@
 
 <script>
 
+// ===== MAP =====
 var map = L.map('map').setView([-33.9, 18.4], 7);
 
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
@@ -47,6 +48,12 @@ var startMarker;
 var endMarker;
 var gpsMarker;
 var speed = 0;
+var mapMoved = false;
+
+// detect user moving map (fix zoom lock)
+map.on('dragstart zoomstart', function() {
+  mapMoved = true;
+});
 
 // ===== GPS TRACKING =====
 function startTracking() {
@@ -56,12 +63,12 @@ function startTracking() {
     var lat = pos.coords.latitude;
     var lon = pos.coords.longitude;
 
-    // UPDATE SPEED
+    // SPEED
     if (pos.coords.speed !== null) {
       speed = pos.coords.speed * 3.6;
     }
 
-    // UPDATE / CREATE GPS MARKER
+    // GPS MARKER
     if (!gpsMarker) {
       gpsMarker = L.marker([lat, lon]).addTo(map)
         .bindPopup("You are here");
@@ -69,8 +76,10 @@ function startTracking() {
       gpsMarker.setLatLng([lat, lon]);
     }
 
-    // CENTER MAP ON YOU
-    map.setView([lat, lon], 13);
+    // ONLY CENTER IF USER HAS NOT MOVED MAP
+    if (!mapMoved) {
+      map.setView([lat, lon], 13);
+    }
 
   }, function(err) {
     alert(err.message);
