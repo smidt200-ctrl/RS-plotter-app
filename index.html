@@ -118,6 +118,7 @@ waypoints.forEach(w=>L.marker(w).addTo(map));
 
 // HEADING LINE
 var headingLine=null;
+var headingMarkers=[];
 
 // GPS (STABLE)
 function startGPS(){
@@ -169,8 +170,8 @@ if(trackLine) map.removeLayer(trackLine);
 trackLine=L.polyline(trackPoints,{color:'red'}).addTo(map);
 }
 
-// 🔥 HEADING LINE UPDATE
-updateHeadingLine(lat, lon);
+// 🔥 HEADING LINE
+updateHeadingLine(lat,lon);
 
 updateDashboard();
 
@@ -178,25 +179,60 @@ updateDashboard();
 
 }
 
-// HEADING LINE FUNCTION
+// 🔥 SMART HEADING LINE
 function updateHeadingLine(lat, lon){
 
 if(headingLine) map.removeLayer(headingLine);
+headingMarkers.forEach(m=>map.removeLayer(m));
+headingMarkers=[];
 
 if(speed < 1) return;
 
-var distance = speed * 1000;
+var distance=speed*1000;
+var rad=heading*Math.PI/180;
 
-var rad = heading * Math.PI / 180;
+function project(dist){
+return[
+lat+(dist*Math.cos(rad))/111320,
+lon+(dist*Math.sin(rad))/(111320*Math.cos(lat*Math.PI/180))
+];
+}
 
-var newLat = lat + (distance * Math.cos(rad)) / 111320;
-var newLon = lon + (distance * Math.sin(rad)) / (111320 * Math.cos(lat * Math.PI/180));
+var p10=project(distance*0.166);
+var p30=project(distance*0.5);
+var p60=project(distance);
 
-headingLine = L.polyline([[lat, lon],[newLat, newLon]],{
-color:'yellow',
-weight:3,
-dashArray:'6,6'
+// COLOR
+var color="yellow";
+if(speed>25) color="red";
+else if(speed>10) color="orange";
+
+// MAIN LINE
+headingLine=L.polyline([[lat,lon],p60],{
+color:color,weight:4,opacity:0.9
 }).addTo(map);
+
+// COLLISION GLOW
+if(speed>20){
+L.polyline([[lat,lon],p60],{
+color:"red",weight:10,opacity:0.2
+}).addTo(map);
+}
+
+// MARKERS
+function addMarker(point,label){
+var m=L.marker(point,{
+icon:L.divIcon({
+html:'<div style="color:white;background:black;padding:2px 4px;border-radius:4px;font-size:10px;">'+label+'</div>',
+className:''
+})
+}).addTo(map);
+headingMarkers.push(m);
+}
+
+addMarker(p10,"10m");
+addMarker(p30,"30m");
+addMarker(p60,"60m");
 
 }
 
@@ -243,7 +279,7 @@ document.getElementById("dashboard").innerHTML=
 "ETA:"+eta;
 }
 
-// CLEAR ROUTE
+// CLEAR
 function clearRoute(){
 routePoints=[];
 if(routeLine) map.removeLayer(routeLine);
@@ -266,7 +302,7 @@ seaOn?map.addLayer(seamap):map.removeLayer(seamap);
 // COURSE
 function toggleCourse(){
 courseUp=!courseUp;
-if(!courseUp){map.setBearing(0);}
+if(!courseUp) map.setBearing(0);
 }
 
 // SAVE TRIP
