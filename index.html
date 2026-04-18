@@ -37,33 +37,13 @@
       border-radius:10px;
     }
 
-    #compass {
-      position:absolute;
-      top:10px;
-      right:10px;
-      width:70px;
-      height:70px;
-      border-radius:50%;
-      background:rgba(0,0,0,0.8);
-      border:2px solid white;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-    }
-
-    #arrow {
-      width:0;
-      height:0;
-      border-left:10px solid transparent;
-      border-right:10px solid transparent;
-      border-bottom:25px solid red;
-    }
-
+    /* REMOVE WHITE BOXES */
     .leaflet-div-icon {
       background:transparent !important;
       border:none !important;
     }
 
+    /* BOAT */
     .boat {
       width:0;
       height:0;
@@ -72,6 +52,7 @@
       border-bottom:20px solid red;
     }
 
+    /* START */
     .start {
       width:14px;
       height:14px;
@@ -80,12 +61,58 @@
       border-radius:50%;
     }
 
+    /* ZOOM POSITION */
     .leaflet-control-zoom {
       bottom:20px;
       right:10px;
       left:auto !important;
       top:auto !important;
     }
+
+    /* ===== NEW COMPASS ===== */
+    #compass {
+      position:absolute;
+      top:10px;
+      right:10px;
+      width:90px;
+      height:90px;
+      z-index:1000;
+    }
+
+    #compassFace {
+      width:100%;
+      height:100%;
+      border-radius:50%;
+      background:rgba(0,0,0,0.8);
+      border:2px solid white;
+      position:relative;
+    }
+
+    .dir {
+      position:absolute;
+      color:white;
+      font-size:12px;
+      font-weight:bold;
+    }
+
+    .north { top:2px; left:50%; transform:translateX(-50%); }
+    .south { bottom:2px; left:50%; transform:translateX(-50%); }
+    .east { right:4px; top:50%; transform:translateY(-50%); }
+    .west { left:4px; top:50%; transform:translateY(-50%); }
+
+    #needle {
+      position:absolute;
+      top:50%;
+      left:50%;
+      width:0;
+      height:0;
+      border-left:8px solid transparent;
+      border-right:8px solid transparent;
+      border-bottom:30px solid red;
+      transform-origin:50% 90%;
+      transform:translate(-50%, -90%) rotate(0deg);
+    }
+
   </style>
 </head>
 
@@ -98,8 +125,24 @@
   <button onclick="clearRoute()">❌ Clear</button>
 </div>
 
-<div id="dashboard">Speed: 0<br>Heading: 0°<br>Distance: 0 km<br>ETA: --</div>
-<div id="compass"><div id="arrow"></div></div>
+<div id="dashboard">
+  Speed: 0<br>
+  Heading: 0°<br>
+  Distance: 0 km<br>
+  ETA: --
+</div>
+
+<!-- COMPASS -->
+<div id="compass">
+  <div id="compassFace">
+    <div class="dir north">N</div>
+    <div class="dir east">E</div>
+    <div class="dir south">S</div>
+    <div class="dir west">W</div>
+    <div id="needle"></div>
+  </div>
+</div>
+
 <div id="map"></div>
 
 <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
@@ -125,22 +168,15 @@ var finishIcon=L.divIcon({html:'🚩',iconSize:[20,20],className:''});
 var gpsMarker=null, watchID=null, speed=0, heading=0;
 var routePoints=[], routeLine=null, startMarker=null, endMarker=null;
 
-// ===== GPS FIXED =====
+// GPS
 function startGPS(){
 
-// restart if already running
 if(watchID){
 navigator.geolocation.clearWatch(watchID);
 watchID=null;
 }
 
-if(!navigator.geolocation){
-alert("GPS not supported on this device");
-return;
-}
-
-watchID = navigator.geolocation.watchPosition(
-function(pos){
+watchID = navigator.geolocation.watchPosition(function(pos){
 
 var lat=pos.coords.latitude;
 var lon=pos.coords.longitude;
@@ -148,7 +184,7 @@ var lon=pos.coords.longitude;
 speed = pos.coords.speed ? pos.coords.speed*3.6 : 0;
 heading = pos.coords.heading ? pos.coords.heading : 0;
 
-// create marker
+// BOAT
 if(!gpsMarker){
 gpsMarker=L.marker([lat,lon],{icon:boatIcon}).addTo(map);
 map.setView([lat,lon],13);
@@ -156,28 +192,25 @@ map.setView([lat,lon],13);
 gpsMarker.setLatLng([lat,lon]);
 }
 
-// rotate
+// ROTATE BOAT
 document.getElementById("boat").style.transform="rotate("+heading+"deg)";
-document.getElementById("arrow").style.transform="rotate("+heading+"deg)";
 
-// follow
+// ROTATE COMPASS
+var needle=document.getElementById("needle");
+if(needle){
+needle.style.transform="translate(-50%, -90%) rotate("+heading+"deg)";
+}
+
+// FOLLOW
 if(follow){
 map.setView([lat,lon], map.getZoom(), {animate:true});
 }
 
 updateDashboard();
 
-},
-function(error){
-
-if(error.code === 1){
-alert("Please allow GPS permission");
-}else{
-alert("GPS error: " + error.message);
-}
-
-},
-{
+}, function(err){
+alert("GPS error: "+err.message);
+},{
 enableHighAccuracy:true,
 maximumAge:0,
 timeout:10000
@@ -222,7 +255,7 @@ d=calcDist(routePoints);
 eta=speed>1?Math.round((d/speed)*60)+" min":"0 speed";
 }
 
-document.getElementById("dashboard").innerHTML =
+document.getElementById("dashboard").innerHTML=
 "Speed: "+speed.toFixed(1)+" km/h<br>"+
 "Heading: "+Math.round(heading)+"°<br>"+
 "Distance: "+d.toFixed(2)+" km<br>"+
