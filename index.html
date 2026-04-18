@@ -45,7 +45,8 @@ var routePoints = [];
 var routeLine;
 var startMarker;
 var endMarker;
-var speed = 0; // km/h
+var gpsMarker;
+var speed = 0;
 
 // ===== GPS TRACKING =====
 function startTracking() {
@@ -55,11 +56,20 @@ function startTracking() {
     var lat = pos.coords.latitude;
     var lon = pos.coords.longitude;
 
-    // speed from GPS (m/s → km/h)
+    // UPDATE SPEED
     if (pos.coords.speed !== null) {
       speed = pos.coords.speed * 3.6;
     }
 
+    // UPDATE / CREATE GPS MARKER
+    if (!gpsMarker) {
+      gpsMarker = L.marker([lat, lon]).addTo(map)
+        .bindPopup("You are here");
+    } else {
+      gpsMarker.setLatLng([lat, lon]);
+    }
+
+    // CENTER MAP ON YOU
     map.setView([lat, lon], 13);
 
   }, function(err) {
@@ -92,7 +102,7 @@ map.on('click', function(e) {
 
     var last = routePoints[routePoints.length - 1];
 
-    var distance = calculateDistance(routePoints); // km
+    var distance = calculateDistance(routePoints);
 
     var etaText = "No speed";
 
