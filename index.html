@@ -4,6 +4,7 @@
   <title>RS Plotter App</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+  <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"/>
 
   <style>
@@ -48,14 +49,30 @@
 
 <div id="map"></div>
 
+<!-- Leaflet JS -->
 <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
 
 <script>
 
+// ===== INIT MAP =====
 var map = L.map('map').setView([-33.9, 18.4], 7);
 
-L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+// ===== OFFLINE LAYER =====
+var offline = L.tileLayer('tiles/{z}/{x}/{y}.png', {
+  minZoom: 7,
+  maxZoom: 9
+});
 
+// ===== ONLINE BACKUP =====
+var online = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 18
+});
+
+// LOAD BOTH
+offline.addTo(map);
+online.addTo(map);
+
+// FIX RENDER BUG
 setTimeout(function() {
   map.invalidateSize();
 }, 1000);
@@ -64,6 +81,7 @@ setTimeout(function() {
 var marker;
 
 document.getElementById("btn").onclick = function() {
+
   navigator.geolocation.getCurrentPosition(function(position) {
 
     var lat = position.coords.latitude;
@@ -76,7 +94,11 @@ document.getElementById("btn").onclick = function() {
       .openPopup();
 
     map.setView([lat, lon], 13);
+
+  }, function(err) {
+    alert(err.message);
   });
+
 };
 
 // ===== SEARCH =====
@@ -88,16 +110,20 @@ function goToCoords() {
   var lon = parseFloat(parts[1]);
 
   if (isNaN(lat) || isNaN(lon)) {
-    alert("Invalid coords");
+    alert("Invalid coordinates");
     return;
   }
 
-  L.marker([lat, lon]).addTo(map);
+  L.marker([lat, lon]).addTo(map)
+    .bindPopup("Custom point")
+    .openPopup();
+
   map.setView([lat, lon], 13);
 }
 
 // ===== MODES =====
 var mode = "waypoint";
+
 function setMode(m) {
   mode = m;
 }
@@ -117,9 +143,7 @@ map.on('click', function(e) {
   if (mode === "route") {
     routePoints.push(e.latlng);
 
-    if (routeLine) {
-      map.removeLayer(routeLine);
-    }
+    if (routeLine) map.removeLayer(routeLine);
 
     routeLine = L.polyline(routePoints, {color: 'blue'}).addTo(map);
   }
