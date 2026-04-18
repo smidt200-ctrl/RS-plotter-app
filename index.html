@@ -4,57 +4,57 @@
   <title>RS Plotter App</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"/>
 
   <style>
-    html, body {
-      margin: 0;
-      height: 100%;
-    }
+    html, body { margin:0; height:100%; }
 
     #map {
       height: 100vh;
       width: 100vw;
     }
 
-    #btn {
+    #btn, #searchBox {
       position: absolute;
-      top: 10px;
       left: 10px;
       z-index: 1000;
       background: white;
       padding: 10px;
       border-radius: 8px;
+      margin-bottom: 5px;
     }
+
+    #btn { top: 10px; }
+    #searchBox { top: 60px; }
   </style>
 </head>
 
 <body>
 
 <div id="btn">📍 My Location</div>
+
+<div id="searchBox">
+  <input type="text" id="coords" placeholder="Lat, Lon">
+  <button onclick="goToCoords()">Go</button>
+</div>
+
 <div id="map"></div>
 
-<!-- Leaflet JS -->
 <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
 
 <script>
 
-// SIMPLE TEST MAP
-var map = L.map('map');
-
-map.setView([-33.9, 18.4], 7);
+var map = L.map('map').setView([-33.9, 18.4], 7);
 
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-// FORCE FIX
 setTimeout(function() {
   map.invalidateSize();
 }, 1000);
 
-// GPS
 var marker;
 
+// GPS BUTTON
 document.getElementById("btn").onclick = function() {
   navigator.geolocation.getCurrentPosition(function(position) {
 
@@ -63,12 +63,41 @@ document.getElementById("btn").onclick = function() {
 
     if (marker) map.removeLayer(marker);
 
-    marker = L.marker([lat, lon]).addTo(map);
+    marker = L.marker([lat, lon]).addTo(map)
+      .bindPopup("You are here")
+      .openPopup();
 
     map.setView([lat, lon], 13);
 
   });
 };
+
+// SEARCH FUNCTION
+function goToCoords() {
+  var input = document.getElementById("coords").value;
+  var parts = input.split(",");
+
+  if (parts.length !== 2) {
+    alert("Enter coordinates like: -33.9, 18.4");
+    return;
+  }
+
+  var lat = parseFloat(parts[0]);
+  var lon = parseFloat(parts[1]);
+
+  if (isNaN(lat) || isNaN(lon)) {
+    alert("Invalid coordinates");
+    return;
+  }
+
+  if (marker) map.removeLayer(marker);
+
+  marker = L.marker([lat, lon]).addTo(map)
+    .bindPopup("Custom location")
+    .openPopup();
+
+  map.setView([lat, lon], 13);
+}
 
 </script>
 
