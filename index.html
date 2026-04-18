@@ -17,6 +17,21 @@
 
 <script>
 var map = L.map('map').setView([-33.9, 18.4], 7);
+  navigator.geolocation.watchPosition(function(position) {
+  var lat = position.coords.latitude;
+  var lon = position.coords.longitude;
+
+  L.marker([lat, lon]).addTo(map)
+    .bindPopup("You are here")
+    .openPopup();
+
+  map.setView([lat, lon], 13);
+
+}, function(error) {
+  alert("GPS error: " + error.message);
+}, {
+  enableHighAccuracy: true
+});
 
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom: 18
