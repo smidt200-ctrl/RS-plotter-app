@@ -10,7 +10,11 @@
 html,body{margin:0;height:100%;}
 #map{height:100vh;width:100vw;}
 
-.panel{position:absolute;top:10px;left:10px;z-index:1000;background:white;padding:8px;border-radius:8px;}
+.panel{
+position:absolute;top:10px;left:10px;
+z-index:1000;background:white;padding:8px;border-radius:8px;
+}
+
 button.active{background:limegreen;color:white;}
 
 #dashboard{
@@ -27,11 +31,15 @@ border-right:10px solid transparent;
 border-bottom:20px solid red;
 }
 
-.start{width:14px;height:14px;background:#0f0;border:2px solid white;border-radius:50%;}
+.start{
+width:14px;height:14px;
+background:#0f0;border:2px solid white;border-radius:50%;
+}
 
 #compass{
 position:absolute;top:10px;right:10px;width:90px;height:90px;z-index:1000;
 }
+
 #needle{
 position:absolute;top:50%;left:50%;
 border-left:8px solid transparent;
@@ -54,7 +62,7 @@ bottom:20px;right:10px;left:auto!important;top:auto!important;
 <button id="followBtn" onclick="toggleFollow()">🎯</button>
 <button onclick="toggleSea()">⚓</button>
 <button onclick="toggleCourse()">🧭</button>
-<button onclick="saveTrip()">💾 Trip</button>
+<button onclick="saveTrip()">💾</button>
 <button onclick="addWaypoint()">📍 WP</button>
 <button onclick="clearRoute()">❌</button>
 </div>
@@ -66,6 +74,7 @@ bottom:20px;right:10px;left:auto!important;top:auto!important;
 <div id="map"></div>
 
 <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-rotate@0.2.0/dist/leaflet-rotate.js"></script>
 
 <script>
 
@@ -73,10 +82,14 @@ bottom:20px;right:10px;left:auto!important;top:auto!important;
 var light=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png');
 var seamap=L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png');
 
-// OFFLINE READY (ADD TILES LATER)
-var offline=L.tileLayer('./tiles/{z}/{x}/{y}.png');
+var map=L.map('map',{
+  center:[-33.9,18.4],
+  zoom:7,
+  layers:[light,seamap],
+  rotate:true,
+  bearing:0
+});
 
-var map=L.map('map',{center:[-33.9,18.4],zoom:7,layers:[light,seamap]});
 map.zoomControl.setPosition('bottomright');
 
 // STATE
@@ -92,17 +105,23 @@ var gpsMarker=null,watchID=null,speed=0,heading=0;
 var routePoints=[],routeLine=null,startMarker=null,endMarker=null;
 
 // TRACK
-var trackPoints=[];
-var currentTrip=[];
+var trackPoints=JSON.parse(localStorage.getItem("track")||"[]");
+var trackLine=null;
 
-// LOAD WAYPOINTS
+if(trackPoints.length>1){
+trackLine=L.polyline(trackPoints,{color:'red'}).addTo(map);
+}
+
+// WAYPOINTS
 var waypoints=JSON.parse(localStorage.getItem("wps")||"[]");
 waypoints.forEach(w=>L.marker(w).addTo(map));
 
 // GPS (UNCHANGED CORE)
 function startGPS(){
 
-if(watchID!==null){navigator.geolocation.clearWatch(watchID);}
+if(watchID!==null){
+navigator.geolocation.clearWatch(watchID);
+}
 
 watchID=navigator.geolocation.watchPosition(function(pos){
 
@@ -115,22 +134,37 @@ heading=pos.coords.heading||0;
 if(!gpsMarker){
 gpsMarker=L.marker([lat,lon],{icon:boatIcon}).addTo(map);
 map.setView([lat,lon],13);
-}else gpsMarker.setLatLng([lat,lon]);
-
-document.getElementById("boat").style.transform="rotate("+heading+"deg)";
-document.getElementById("needle").style.transform="translate(-50%,-90%) rotate("+heading+"deg)";
-
-// COURSE UP
-if(courseUp){
-map.setBearing?map.setBearing(heading):null;
+}else{
+gpsMarker.setLatLng([lat,lon]);
 }
 
-if(follow){map.setView([lat,lon],map.getZoom());}
+// ROTATION
+var boat=document.getElementById("boat");
+if(boat) boat.style.transform="rotate("+heading+"deg)";
 
-// TRACK + TRIP
-var p=[lat,lon];
-trackPoints.push(p);
-currentTrip.push(p);
+var needle=document.getElementById("needle");
+if(needle) needle.style.transform="translate(-50%,-90%) rotate("+heading+"deg)";
+
+// COURSE UP (NOW WORKS)
+if(courseUp){
+map.setBearing(heading);
+}
+
+// FOLLOW
+if(follow){
+map.setView([lat,lon],map.getZoom());
+}
+
+// TRACK SAVE
+var point=[lat,lon];
+
+if(trackPoints.length===0 || map.distance(trackPoints[trackPoints.length-1],point)>3){
+trackPoints.push(point);
+localStorage.setItem("track",JSON.stringify(trackPoints));
+
+if(trackLine) map.removeLayer(trackLine);
+trackLine=L.polyline(trackPoints,{color:'red'}).addTo(map);
+}
 
 updateDashboard();
 
@@ -140,16 +174,18 @@ updateDashboard();
 
 // ROUTE
 map.on('click',function(e){
+
 routePoints.push(e.latlng);
 
-if(routeLine)map.removeLayer(routeLine);
+if(routeLine) map.removeLayer(routeLine);
 routeLine=L.polyline(routePoints,{color:'cyan'}).addTo(map);
 
-if(routePoints.length===1)
+if(routePoints.length===1){
 startMarker=L.marker(e.latlng,{icon:startIcon}).addTo(map);
+}
 
 if(routePoints.length>1){
-if(endMarker)map.removeLayer(endMarker);
+if(endMarker) map.removeLayer(endMarker);
 endMarker=L.marker(e.latlng,{icon:finishIcon}).addTo(map);
 }
 
@@ -159,17 +195,19 @@ updateDashboard();
 // DIST
 function calcDist(p){
 var t=0;
-for(var i=1;i<p.length;i++)t+=map.distance(p[i-1],p[i]);
+for(var i=1;i<p.length;i++) t+=map.distance(p[i-1],p[i]);
 return t/1000;
 }
 
 // DASH
 function updateDashboard(){
 var d=0,eta="--";
+
 if(routePoints.length>1){
 d=calcDist(routePoints);
 eta=speed>1?Math.round((d/speed)*60)+" min":"0 speed";
 }
+
 document.getElementById("dashboard").innerHTML=
 "Speed:"+speed.toFixed(1)+"<br>"+
 "Heading:"+Math.round(heading)+"°<br>"+
@@ -180,9 +218,9 @@ document.getElementById("dashboard").innerHTML=
 // CLEAR ROUTE
 function clearRoute(){
 routePoints=[];
-if(routeLine)map.removeLayer(routeLine);
-if(startMarker)map.removeLayer(startMarker);
-if(endMarker)map.removeLayer(endMarker);
+if(routeLine) map.removeLayer(routeLine);
+if(startMarker) map.removeLayer(startMarker);
+if(endMarker) map.removeLayer(endMarker);
 }
 
 // FOLLOW
@@ -197,23 +235,26 @@ seaOn=!seaOn;
 seaOn?map.addLayer(seamap):map.removeLayer(seamap);
 }
 
-// COURSE
+// COURSE BUTTON
 function toggleCourse(){
 courseUp=!courseUp;
+
+if(!courseUp){
+map.setBearing(0);
+}
 }
 
 // SAVE TRIP
 function saveTrip(){
 var trips=JSON.parse(localStorage.getItem("trips")||"[]");
-trips.push(currentTrip);
+trips.push(trackPoints);
 localStorage.setItem("trips",JSON.stringify(trips));
-currentTrip=[];
 alert("Trip saved");
 }
 
 // WAYPOINT
 function addWaypoint(){
-if(!gpsMarker)return;
+if(!gpsMarker) return;
 var pos=gpsMarker.getLatLng();
 waypoints.push(pos);
 localStorage.setItem("wps",JSON.stringify(waypoints));
@@ -221,5 +262,6 @@ L.marker(pos).addTo(map);
 }
 
 </script>
+
 </body>
 </html>
