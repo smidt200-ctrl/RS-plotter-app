@@ -5,29 +5,23 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <style>
-    html, body {
-      margin: 0;
-      height: 100%;
-    }
-    #map {
-      height: 100%;
-    }
+    html, body { margin:0; height:100%; }
+    #map { height:100%; }
     #btn {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      z-index: 1000;
-      background: white;
-      padding: 10px;
-      border-radius: 8px;
-      font-weight: bold;
+      position:absolute;
+      top:10px;
+      left:10px;
+      z-index:1000;
+      background:white;
+      padding:10px;
+      border-radius:8px;
     }
   </style>
 </head>
 
 <body>
 
-<div id="btn">📍 Get My Location</div>
+<div id="btn">📍 My Location</div>
 <div id="map"></div>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
@@ -36,28 +30,20 @@
 <script>
 var map = L.map('map').setView([-33.9, 18.4], 7);
 
-L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+// ✅ OFFLINE TILE SOURCE
+L.tileLayer('tiles/{z}/{x}/{y}.png', {
   maxZoom: 18
 }).addTo(map);
 
 var marker;
 
-// BUTTON CLICK → ASK FOR LOCATION
 document.getElementById("btn").onclick = function() {
-
-  if (!navigator.geolocation) {
-    alert("Geolocation not supported on this device");
-    return;
-  }
-
   navigator.geolocation.getCurrentPosition(function(position) {
 
     var lat = position.coords.latitude;
     var lon = position.coords.longitude;
 
-    if (marker) {
-      map.removeLayer(marker);
-    }
+    if (marker) map.removeLayer(marker);
 
     marker = L.marker([lat, lon]).addTo(map)
       .bindPopup("You are here")
@@ -65,12 +51,9 @@ document.getElementById("btn").onclick = function() {
 
     map.setView([lat, lon], 13);
 
-  }, function(error) {
-    alert("Location error: " + error.message);
-  }, {
-    enableHighAccuracy: true
+  }, function(err) {
+    alert(err.message);
   });
-
 };
 </script>
 
