@@ -10,7 +10,6 @@
 html,body{margin:0;height:100%;}
 #map{height:100vh;width:100vw;}
 
-/* CONTROLS */
 #controls{
 position:absolute;bottom:10px;left:50%;
 transform:translateX(-50%);
@@ -29,7 +28,6 @@ min-width:50px;
 
 #controls button.active{background:limegreen;}
 
-/* DASH */
 #dashboard{
 position:absolute;top:10px;left:10px;
 background:rgba(0,0,0,0.7);
@@ -37,7 +35,6 @@ color:white;padding:8px;border-radius:10px;
 font-size:13px;z-index:1000;
 }
 
-/* COMPASS */
 #compass{
 position:absolute;top:10px;right:10px;
 width:70px;height:70px;
@@ -54,7 +51,6 @@ transform-origin:50% 90%;
 transform:translate(-50%,-90%);
 }
 
-/* ICONS */
 .leaflet-div-icon{background:transparent;border:none;}
 
 .boat{
@@ -69,7 +65,6 @@ width:14px;height:14px;
 background:#0f0;border:2px solid white;border-radius:50%;
 }
 
-/* ZOOM */
 .leaflet-control-zoom{
 bottom:80px;right:10px;left:auto!important;top:auto!important;
 }
@@ -131,7 +126,7 @@ if(trackPoints.length>1){
 trackLine=L.polyline(trackPoints,{color:'red'}).addTo(map);
 }
 
-// WAYPOINTS (FULL SYSTEM)
+// WAYPOINTS
 var waypoints=JSON.parse(localStorage.getItem("wps")||"[]");
 var waypointMarkers=[];
 
@@ -157,7 +152,6 @@ if(!gpsMarker) return;
 
 var pos=gpsMarker.getLatLng();
 var name=prompt("Waypoint name:");
-
 if(!name) name="Waypoint";
 
 waypoints.push({lat:pos.lat,lng:pos.lng,name:name});
@@ -183,6 +177,30 @@ localStorage.setItem("wps",JSON.stringify(waypoints));
 drawWaypoints();
 }
 
+// 🔥 LONG PRESS WAYPOINT
+var pressTimer;
+
+map.on('mousedown', function(e){
+pressTimer=setTimeout(function(){
+
+var name=prompt("Waypoint name:");
+if(!name) name="Waypoint";
+
+waypoints.push({
+lat:e.latlng.lat,
+lng:e.latlng.lng,
+name:name
+});
+
+localStorage.setItem("wps",JSON.stringify(waypoints));
+drawWaypoints();
+
+},800);
+});
+
+map.on('mouseup', function(){clearTimeout(pressTimer);});
+map.on('mouseout', function(){clearTimeout(pressTimer);});
+
 // HEADING LINE
 var headingLine=null;
 
@@ -199,7 +217,6 @@ var newLat=lat+(distance*Math.cos(rad))/111320;
 var newLon=lon+(distance*Math.sin(rad))/(111320*Math.cos(lat*Math.PI/180));
 
 headingLine=L.polyline([[lat,lon],[newLat,newLon]],{color:'yellow'}).addTo(map);
-
 }
 
 // GPS
@@ -224,20 +241,15 @@ map.setView([lat,lon],13);
 gpsMarker.setLatLng([lat,lon]);
 }
 
-// rotate
 var boat=document.getElementById("boat");
 if(boat) boat.style.transform="rotate("+heading+"deg)";
 
 var needle=document.getElementById("needle");
 if(needle) needle.style.transform="translate(-50%,-90%) rotate("+heading+"deg)";
 
-// course
 if(courseUp){ map.setBearing(heading); }
-
-// follow
 if(follow){ map.setView([lat,lon],map.getZoom()); }
 
-// track
 var point=[lat,lon];
 
 if(trackPoints.length===0 || map.distance(trackPoints[trackPoints.length-1],point)>3){
@@ -248,9 +260,7 @@ if(trackLine) map.removeLayer(trackLine);
 trackLine=L.polyline(trackPoints,{color:'red'}).addTo(map);
 }
 
-// heading
 updateHeadingLine(lat,lon);
-
 updateDashboard();
 
 });
