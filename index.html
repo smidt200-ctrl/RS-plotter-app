@@ -14,28 +14,36 @@
       width: 100vw;
     }
 
-    #btn, #searchBox {
+    .panel {
       position: absolute;
       left: 10px;
       z-index: 1000;
       background: white;
-      padding: 10px;
+      padding: 8px;
       border-radius: 8px;
       margin-bottom: 5px;
+      font-size: 14px;
     }
 
     #btn { top: 10px; }
-    #searchBox { top: 60px; }
+    #search { top: 60px; }
+    #mode { top: 110px; }
   </style>
 </head>
 
 <body>
 
-<div id="btn">📍 My Location</div>
+<div id="btn" class="panel">📍 My Location</div>
 
-<div id="searchBox">
+<div id="search" class="panel">
   <input type="text" id="coords" placeholder="Lat, Lon">
   <button onclick="goToCoords()">Go</button>
+</div>
+
+<div id="mode" class="panel">
+  <button onclick="setMode('waypoint')">📍 Waypoint</button>
+  <button onclick="setMode('route')">🧭 Route</button>
+  <button onclick="clearRoute()">❌ Clear</button>
 </div>
 
 <div id="map"></div>
@@ -52,9 +60,9 @@ setTimeout(function() {
   map.invalidateSize();
 }, 1000);
 
+// ===== GPS =====
 var marker;
 
-// GPS BUTTON
 document.getElementById("btn").onclick = function() {
   navigator.geolocation.getCurrentPosition(function(position) {
 
@@ -68,35 +76,63 @@ document.getElementById("btn").onclick = function() {
       .openPopup();
 
     map.setView([lat, lon], 13);
-
   });
 };
 
-// SEARCH FUNCTION
+// ===== SEARCH =====
 function goToCoords() {
   var input = document.getElementById("coords").value;
   var parts = input.split(",");
-
-  if (parts.length !== 2) {
-    alert("Enter coordinates like: -33.9, 18.4");
-    return;
-  }
 
   var lat = parseFloat(parts[0]);
   var lon = parseFloat(parts[1]);
 
   if (isNaN(lat) || isNaN(lon)) {
-    alert("Invalid coordinates");
+    alert("Invalid coords");
     return;
   }
 
-  if (marker) map.removeLayer(marker);
-
-  marker = L.marker([lat, lon]).addTo(map)
-    .bindPopup("Custom location")
-    .openPopup();
-
+  L.marker([lat, lon]).addTo(map);
   map.setView([lat, lon], 13);
+}
+
+// ===== MODES =====
+var mode = "waypoint";
+function setMode(m) {
+  mode = m;
+}
+
+// ===== WAYPOINT + ROUTE =====
+var routePoints = [];
+var routeLine;
+
+map.on('click', function(e) {
+
+  if (mode === "waypoint") {
+    L.marker(e.latlng).addTo(map)
+      .bindPopup("Waypoint")
+      .openPopup();
+  }
+
+  if (mode === "route") {
+    routePoints.push(e.latlng);
+
+    if (routeLine) {
+      map.removeLayer(routeLine);
+    }
+
+    routeLine = L.polyline(routePoints, {color: 'blue'}).addTo(map);
+  }
+
+});
+
+// ===== CLEAR ROUTE =====
+function clearRoute() {
+  routePoints = [];
+
+  if (routeLine) {
+    map.removeLayer(routeLine);
+  }
 }
 
 </script>
