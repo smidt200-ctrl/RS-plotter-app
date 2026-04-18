@@ -48,21 +48,31 @@ var map = L.map('map').setView([-33.9, 18.4], 7);
 
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
+// ===== CUSTOM ICONS =====
+var startIcon = L.icon({
+  iconUrl: 'https://cdn-icons-png.flaticon.com/512/190/190411.png',
+  iconSize: [30, 30]
+});
+
+var finishIcon = L.icon({
+  iconUrl: 'https://cdn-icons-png.flaticon.com/512/684/684908.png',
+  iconSize: [30, 30]
+});
+
 // ===== GPS DATA =====
 var gpsMarker;
 var speed = 0;
 
-// ===== TRACK (AUTO SAVE) =====
+// ===== TRACK =====
 var trackPoints = [];
 var trackLine;
 
 if (localStorage.getItem("track")) {
   trackPoints = JSON.parse(localStorage.getItem("track"));
-
   trackLine = L.polyline(trackPoints, {color:'red'}).addTo(map);
 }
 
-// ===== GPS TRACKING =====
+// ===== GPS =====
 function startTracking() {
 
   navigator.geolocation.watchPosition(function(pos) {
@@ -74,7 +84,6 @@ function startTracking() {
       speed = pos.coords.speed * 3.6;
     }
 
-    // GPS marker
     if (!gpsMarker) {
       gpsMarker = L.marker([lat, lon]).addTo(map)
         .bindPopup("You");
@@ -82,13 +91,11 @@ function startTracking() {
       gpsMarker.setLatLng([lat, lon]);
     }
 
-    // SAVE TRACK
     var point = [lat, lon];
     trackPoints.push(point);
     localStorage.setItem("track", JSON.stringify(trackPoints));
 
     if (trackLine) map.removeLayer(trackLine);
-
     trackLine = L.polyline(trackPoints, {color:'red'}).addTo(map);
 
   }, function(err) {
@@ -96,7 +103,6 @@ function startTracking() {
   }, {
     enableHighAccuracy: true
   });
-
 }
 
 // ===== MANUAL ROUTE =====
@@ -112,13 +118,13 @@ map.on('click', function(e) {
   if (routeLine) map.removeLayer(routeLine);
   routeLine = L.polyline(routePoints, {color:'blue'}).addTo(map);
 
-  // START
+  // START ICON
   if (routePoints.length === 1) {
-    startMarker = L.marker(e.latlng).addTo(map)
+    startMarker = L.marker(e.latlng, {icon: startIcon}).addTo(map)
       .bindPopup("START").openPopup();
   }
 
-  // FINISH + ETA
+  // FINISH ICON + ETA
   if (routePoints.length > 1) {
 
     if (endMarker) map.removeLayer(endMarker);
@@ -135,9 +141,9 @@ map.on('click', function(e) {
       etaText = minutes + " min";
     }
 
-    endMarker = L.marker(last).addTo(map)
+    endMarker = L.marker(last, {icon: finishIcon}).addTo(map)
       .bindPopup(
-        "FINISH<br>" +
+        "FINISH 🚩<br>" +
         "Distance: " + distance.toFixed(2) + " km<br>" +
         "Speed: " + speed.toFixed(1) + " km/h<br>" +
         "ETA: " + etaText
@@ -149,23 +155,19 @@ map.on('click', function(e) {
 // ===== DISTANCE =====
 function calculateDistance(points) {
   var total = 0;
-
   for (var i = 1; i < points.length; i++) {
     total += map.distance(points[i-1], points[i]);
   }
-
   return total / 1000;
 }
 
-// ===== CLEAR MANUAL ONLY =====
+// ===== CLEAR =====
 function clearManual() {
-
   routePoints = [];
 
   if (routeLine) map.removeLayer(routeLine);
   if (startMarker) map.removeLayer(startMarker);
   if (endMarker) map.removeLayer(endMarker);
-
 }
 
 // ===== SEARCH =====
