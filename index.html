@@ -17,17 +17,24 @@
       background:white;
       padding:8px;
       border-radius:8px;
+      font-size:14px;
     }
 
-    #mode { top:10px; }
+    #top { top:10px; }
+    #search { top:60px; }
   </style>
 </head>
 
 <body>
 
-<div id="mode" class="panel">
+<div id="top" class="panel">
   <button onclick="startTracking()">📍 Start GPS</button>
-  <button onclick="clearAll()">❌ Clear</button>
+  <button onclick="clearManual()">❌ Clear Manual</button>
+</div>
+
+<div id="search" class="panel">
+  <input type="text" id="coords" placeholder="Lat, Lon">
+  <button onclick="goToCoords()">Go</button>
 </div>
 
 <div id="map"></div>
@@ -42,18 +49,16 @@ var map = L.map('map').setView([-33.9, 18.4], 7);
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
 // ===== DATA =====
-var routePoints = [];
-var routeLine;
-var startMarker;
-var endMarker;
 var gpsMarker;
 var speed = 0;
-var mapMoved = false;
 
-// detect user moving map (fix zoom lock)
-map.on('dragstart zoomstart', function() {
-  mapMoved = true;
-});
+// AUTO TRACK (your movement)
+var trackPoints = [];
+var trackLine;
+
+// MANUAL ROUTE
+var routePoints = [];
+var routeLine;
 
 // ===== GPS TRACKING =====
 function startTracking() {
@@ -63,23 +68,30 @@ function startTracking() {
     var lat = pos.coords.latitude;
     var lon = pos.coords.longitude;
 
-    // SPEED
+    // speed
     if (pos.coords.speed !== null) {
       speed = pos.coords.speed * 3.6;
     }
 
-    // GPS MARKER
+    // GPS marker
     if (!gpsMarker) {
       gpsMarker = L.marker([lat, lon]).addTo(map)
-        .bindPopup("You are here");
+        .bindPopup("You");
     } else {
       gpsMarker.setLatLng([lat, lon]);
     }
 
-    // ONLY CENTER IF USER HAS NOT MOVED MAP
-    if (!mapMoved) {
-      map.setView([lat, lon], 13);
-    }
+    // ===== AUTO TRACK LINE =====
+    var point = [lat, lon];
+    trackPoints.push(point);
+
+    if (trackLine) map.removeLayer(trackLine);
+
+    trackLine = L.polyline(trackPoints, {
+      color: 'red'
+    }).addTo(map);
+
+    map.setView([lat, lon], 13);
 
   }, function(err) {
     alert(err.message);
@@ -89,67 +101,41 @@ function startTracking() {
 
 }
 
-// ===== CLICK TO BUILD ROUTE =====
+// ===== MANUAL ROUTE =====
 map.on('click', function(e) {
 
   routePoints.push(e.latlng);
 
   if (routeLine) map.removeLayer(routeLine);
 
-  routeLine = L.polyline(routePoints, {color:'blue'}).addTo(map);
-
-  // START
-  if (routePoints.length === 1) {
-    startMarker = L.marker(e.latlng).addTo(map)
-      .bindPopup("START").openPopup();
-  }
-
-  // FINISH + ETA
-  if (routePoints.length > 1) {
-
-    if (endMarker) map.removeLayer(endMarker);
-
-    var last = routePoints[routePoints.length - 1];
-
-    var distance = calculateDistance(routePoints);
-
-    var etaText = "No speed";
-
-    if (speed > 1) {
-      var eta = distance / speed;
-      var minutes = Math.round(eta * 60);
-      etaText = minutes + " min";
-    }
-
-    endMarker = L.marker(last).addTo(map)
-      .bindPopup(
-        "FINISH<br>" +
-        "Distance: " + distance.toFixed(2) + " km<br>" +
-        "Speed: " + speed.toFixed(1) + " km/h<br>" +
-        "ETA: " + etaText
-      ).openPopup();
-  }
+  routeLine = L.polyline(routePoints, {
+    color:'blue'
+  }).addTo(map);
 
 });
 
-// ===== DISTANCE =====
-function calculateDistance(points) {
-  var total = 0;
-
-  for (var i = 1; i < points.length; i++) {
-    total += map.distance(points[i-1], points[i]);
-  }
-
-  return total / 1000;
-}
-
-// ===== CLEAR =====
-function clearAll() {
+// ===== CLEAR ONLY MANUAL =====
+function clearManual() {
   routePoints = [];
 
   if (routeLine) map.removeLayer(routeLine);
-  if (startMarker) map.removeLayer(startMarker);
-  if (endMarker) map.removeLayer(endMarker);
+}
+
+// ===== SEARCH =====
+function goToCoords() {
+  var input = document.getElementById("coords").value;
+  var parts = input.split(",");
+
+  var lat = parseFloat(parts[0]);
+  var lon = parseFloat(parts[1]);
+
+  if (isNaN(lat) || isNaN(lon)) {
+    alert("Invalid coordinates");
+    return;
+  }
+
+  L.marker([lat, lon]).addTo(map);
+  map.setView([lat, lon], 13);
 }
 
 </script>
