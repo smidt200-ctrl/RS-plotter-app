@@ -113,7 +113,6 @@
 <div id="top" class="panel">
   <button onclick="startGPS()">📍 GPS</button>
   <button id="followBtn" onclick="toggleFollow()">🎯 Follow</button>
-  <button onclick="toggleDark()">🌊 Dark</button>
   <button onclick="toggleSea()">⚓ Sea</button>
   <button onclick="clearRoute()">❌ Clear</button>
 </div>
@@ -143,8 +142,7 @@
 
 // MAP
 var light = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png');
-var dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png');
-var seamap = L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png',{maxZoom:18});
+var seamap = L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png');
 
 var map = L.map('map',{
   center:[-33.9,18.4],
@@ -155,7 +153,7 @@ var map = L.map('map',{
 map.zoomControl.setPosition('bottomright');
 
 // STATE
-var follow=false, darkMode=false, seaOn=true;
+var follow=false, seaOn=true;
 
 // ICONS
 var boatIcon=L.divIcon({html:'<div class="boat" id="boat"></div>',iconSize:[20,20],className:''});
@@ -174,21 +172,12 @@ if(trackPoints.length > 1){
   trackLine = L.polyline(trackPoints,{color:'red'}).addTo(map);
 }
 
-// GPS (FINAL FIX)
+// ✅ GPS (simple + stable)
 function startGPS(){
 
 if (watchID !== null){
   navigator.geolocation.clearWatch(watchID);
-  watchID = null;
 }
-
-if (!navigator.geolocation){
-  alert("GPS not supported");
-  return;
-}
-
-// force permission first
-navigator.geolocation.getCurrentPosition(function(){
 
 watchID = navigator.geolocation.watchPosition(function(pos){
 
@@ -212,7 +201,7 @@ watchID = navigator.geolocation.watchPosition(function(pos){
   if(needle) needle.style.transform="translate(-50%, -90%) rotate("+heading+"deg)";
 
   if (follow){
-    map.setView([lat, lon], map.getZoom(), {animate:true});
+    map.setView([lat, lon], map.getZoom());
   }
 
   var point=[lat,lon];
@@ -227,14 +216,6 @@ watchID = navigator.geolocation.watchPosition(function(pos){
 
   updateDashboard();
 
-},{
-  enableHighAccuracy:true,
-  maximumAge:0,
-  timeout:15000
-});
-
-}, function(){
-  alert("Allow location access");
 });
 
 }
@@ -282,7 +263,7 @@ document.getElementById("dashboard").innerHTML=
 "ETA: "+eta;
 }
 
-// CLEAR ROUTE ONLY
+// CLEAR
 function clearRoute(){
 routePoints=[];
 if(routeLine) map.removeLayer(routeLine);
@@ -295,13 +276,6 @@ updateDashboard();
 function toggleFollow(){
 follow=!follow;
 document.getElementById("followBtn").classList.toggle("active", follow);
-}
-
-// DARK
-function toggleDark(){
-darkMode=!darkMode;
-if(darkMode){map.removeLayer(light);map.addLayer(dark);}
-else{map.removeLayer(dark);map.addLayer(light);}
 }
 
 // SEA
