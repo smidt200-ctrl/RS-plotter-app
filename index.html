@@ -116,7 +116,10 @@ trackLine=L.polyline(trackPoints,{color:'red'}).addTo(map);
 var waypoints=JSON.parse(localStorage.getItem("wps")||"[]");
 waypoints.forEach(w=>L.marker(w).addTo(map));
 
-// GPS (UNCHANGED CORE)
+// HEADING LINE
+var headingLine=null;
+
+// GPS (STABLE)
 function startGPS(){
 
 if(watchID!==null){
@@ -138,14 +141,14 @@ map.setView([lat,lon],13);
 gpsMarker.setLatLng([lat,lon]);
 }
 
-// ROTATION
+// ROTATE ICONS
 var boat=document.getElementById("boat");
 if(boat) boat.style.transform="rotate("+heading+"deg)";
 
 var needle=document.getElementById("needle");
 if(needle) needle.style.transform="translate(-50%,-90%) rotate("+heading+"deg)";
 
-// COURSE UP (NOW WORKS)
+// COURSE UP
 if(courseUp){
 map.setBearing(heading);
 }
@@ -166,9 +169,34 @@ if(trackLine) map.removeLayer(trackLine);
 trackLine=L.polyline(trackPoints,{color:'red'}).addTo(map);
 }
 
+// 🔥 HEADING LINE UPDATE
+updateHeadingLine(lat, lon);
+
 updateDashboard();
 
 });
+
+}
+
+// HEADING LINE FUNCTION
+function updateHeadingLine(lat, lon){
+
+if(headingLine) map.removeLayer(headingLine);
+
+if(speed < 1) return;
+
+var distance = speed * 1000;
+
+var rad = heading * Math.PI / 180;
+
+var newLat = lat + (distance * Math.cos(rad)) / 111320;
+var newLon = lon + (distance * Math.sin(rad)) / (111320 * Math.cos(lat * Math.PI/180));
+
+headingLine = L.polyline([[lat, lon],[newLat, newLon]],{
+color:'yellow',
+weight:3,
+dashArray:'6,6'
+}).addTo(map);
 
 }
 
@@ -209,7 +237,7 @@ eta=speed>1?Math.round((d/speed)*60)+" min":"0 speed";
 }
 
 document.getElementById("dashboard").innerHTML=
-"Speed:"+speed.toFixed(1)+"<br>"+
+"Speed:"+speed.toFixed(1)+" km/h<br>"+
 "Heading:"+Math.round(heading)+"°<br>"+
 "Distance:"+d.toFixed(2)+" km<br>"+
 "ETA:"+eta;
@@ -235,13 +263,10 @@ seaOn=!seaOn;
 seaOn?map.addLayer(seamap):map.removeLayer(seamap);
 }
 
-// COURSE BUTTON
+// COURSE
 function toggleCourse(){
 courseUp=!courseUp;
-
-if(!courseUp){
-map.setBearing(0);
-}
+if(!courseUp){map.setBearing(0);}
 }
 
 // SAVE TRIP
