@@ -106,7 +106,6 @@
       transform-origin:50% 90%;
       transform:translate(-50%, -90%);
     }
-
   </style>
 </head>
 
@@ -161,63 +160,81 @@ var finishIcon=L.divIcon({html:'🚩',iconSize:[20,20],className:''});
 var gpsMarker=null, watchID=null, speed=0, heading=0;
 var routePoints=[], routeLine=null, startMarker=null, endMarker=null;
 
-// ===== TRACK STORAGE =====
+// TRACK
 var trackPoints = JSON.parse(localStorage.getItem("track") || "[]");
 var trackLine = null;
 
-// LOAD EXISTING TRACK
 if(trackPoints.length > 1){
   trackLine = L.polyline(trackPoints, {color:'red'}).addTo(map);
 }
 
-// GPS
+// GPS (STABLE)
 function startGPS(){
 
-if(watchID){
-navigator.geolocation.clearWatch(watchID);
-watchID=null;
+if (watchID !== null){
+  navigator.geolocation.clearWatch(watchID);
+  watchID = null;
 }
 
-watchID = navigator.geolocation.watchPosition(function(pos){
-
-var lat=pos.coords.latitude;
-var lon=pos.coords.longitude;
-
-speed = pos.coords.speed ? pos.coords.speed*3.6 : 0;
-heading = pos.coords.heading ? pos.coords.heading : 0;
-
-// BOAT
-if(!gpsMarker){
-gpsMarker=L.marker([lat,lon],{icon:boatIcon}).addTo(map);
-map.setView([lat,lon],13);
-}else{
-gpsMarker.setLatLng([lat,lon]);
+if (!navigator.geolocation){
+  alert("GPS not supported");
+  return;
 }
 
-// ROTATE
-document.getElementById("boat").style.transform="rotate("+heading+"deg)";
-document.getElementById("needle").style.transform="translate(-50%, -90%) rotate("+heading+"deg)";
+watchID = navigator.geolocation.watchPosition(
 
-// FOLLOW
-if(follow){
-map.setView([lat,lon], map.getZoom(), {animate:true});
-}
+function(pos){
 
-// ===== TRACK SAVE =====
-var point=[lat,lon];
-trackPoints.push(point);
-localStorage.setItem("track", JSON.stringify(trackPoints));
+  var lat = pos.coords.latitude;
+  var lon = pos.coords.longitude;
 
-// redraw track
-if(trackLine) map.removeLayer(trackLine);
-trackLine = L.polyline(trackPoints, {color:'red'}).addTo(map);
+  speed = (pos.coords.speed != null) ? pos.coords.speed * 3.6 : 0;
+  heading = (pos.coords.heading != null) ? pos.coords.heading : 0;
 
-updateDashboard();
+  if (!gpsMarker){
+    gpsMarker = L.marker([lat, lon], {icon: boatIcon}).addTo(map);
+    map.setView([lat, lon], 13);
+  } else {
+    gpsMarker.setLatLng([lat, lon]);
+  }
 
-},{
-enableHighAccuracy:true,
-maximumAge:0,
-timeout:10000
+  // ROTATE
+  var boat = document.getElementById("boat");
+  if (boat) boat.style.transform = "rotate(" + heading + "deg)";
+
+  var needle = document.getElementById("needle");
+  if (needle) needle.style.transform = "translate(-50%, -90%) rotate(" + heading + "deg)";
+
+  // FOLLOW
+  if (follow){
+    map.setView([lat, lon], map.getZoom(), {animate:true});
+  }
+
+  // TRACK SAVE
+  var point = [lat, lon];
+
+  if (trackPoints.length === 0 || 
+      map.distance(trackPoints[trackPoints.length - 1], point) > 3){
+
+      trackPoints.push(point);
+      localStorage.setItem("track", JSON.stringify(trackPoints));
+
+      if (trackLine) map.removeLayer(trackLine);
+      trackLine = L.polyline(trackPoints, {color:'red'}).addTo(map);
+  }
+
+  updateDashboard();
+
+},
+
+function(error){
+  console.log(error);
+},
+
+{
+  enableHighAccuracy:true,
+  maximumAge:0,
+  timeout:15000
 });
 
 }
