@@ -21,7 +21,6 @@
     }
 
     #top { top:10px; }
-    #search { top:60px; }
 
     #dashboard {
       position:absolute;
@@ -64,6 +63,22 @@
       border-bottom:20px solid red;
     }
 
+    /* BETTER MARKERS */
+    .start-marker {
+      width:14px;
+      height:14px;
+      background:#00ff00;
+      border:2px solid white;
+      border-radius:50%;
+    }
+
+    .finish-marker {
+      width:16px;
+      height:16px;
+      background:red;
+      clip-path: polygon(0 0, 100% 50%, 0 100%);
+    }
+
     .leaflet-control-zoom {
       bottom:20px;
       right:10px;
@@ -82,15 +97,8 @@
   <button onclick="clearRoute()">❌ Clear</button>
 </div>
 
-<div id="search" class="panel">
-  <input type="text" id="coords" placeholder="Lat, Lon">
-  <button onclick="goToCoords()">Go</button>
-</div>
-
 <div id="dashboard">Speed: 0<br>Heading: 0°<br>Distance: 0 km<br>ETA: --</div>
-
 <div id="compass"><div id="compassArrow"></div></div>
-
 <div id="map"></div>
 
 <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
@@ -104,9 +112,9 @@ var darkMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y
 var map = L.map('map', {
   center: [-33.9, 18.4],
   zoom: 7,
-  layers: [lightMap],
-  zoomControl:true
+  layers: [lightMap]
 });
+
 map.zoomControl.setPosition('bottomright');
 
 // ===== STATE =====
@@ -115,17 +123,24 @@ var dark = false;
 
 // ===== ICONS =====
 var boatIcon = L.divIcon({html:'<div class="boat" id="boat"></div>',iconSize:[20,20]});
-var startIcon = L.divIcon({html:'🟢',iconSize:[20,20]});
-var finishIcon = L.divIcon({html:'🚩',iconSize:[20,20]});
+
+var startIcon = L.divIcon({
+  html:'<div class="start-marker"></div>',
+  iconSize:[14,14]
+});
+
+var finishIcon = L.divIcon({
+  html:'<div class="finish-marker"></div>',
+  iconSize:[16,16]
+});
 
 // ===== DATA =====
 var gpsMarker, headingLine, speed=0, heading=0;
-
-// ===== ROUTE =====
 var routePoints=[], routeLine, startMarker, endMarker;
 
 // ===== GPS =====
 function startTracking(){
+
 navigator.geolocation.watchPosition(function(pos){
 
 var lat=pos.coords.latitude;
@@ -134,14 +149,18 @@ var lon=pos.coords.longitude;
 if(pos.coords.speed!=null) speed=pos.coords.speed*3.6;
 if(pos.coords.heading!=null) heading=pos.coords.heading;
 
-// BOAT
+// CREATE OR UPDATE BOAT
 if(!gpsMarker){
 gpsMarker=L.marker([lat,lon],{icon:boatIcon}).addTo(map);
+
+// 🔥 CENTER MAP FIRST TIME
+map.setView([lat,lon],13);
+
 }else{
 gpsMarker.setLatLng([lat,lon]);
 }
 
-// ROTATION
+// ROTATE
 document.getElementById("boat").style.transform="rotate("+heading+"deg)";
 document.getElementById("compassArrow").style.transform="rotate("+heading+"deg)";
 
@@ -158,14 +177,14 @@ headingLine=L.polyline([[lat,lon],dest],{color:'lime',dashArray:'5,5'}).addTo(ma
 updateDashboard();
 
 },{enableHighAccuracy:true});
+
 }
 
-// ===== ROUTE CLICK =====
+// ===== ROUTE =====
 map.on('click',function(e){
 
 routePoints.push(e.latlng);
 
-// DRAW
 if(routeLine) map.removeLayer(routeLine);
 routeLine=L.polyline(routePoints,{color:'cyan'}).addTo(map);
 
@@ -174,7 +193,7 @@ if(routePoints.length==1){
 startMarker=L.marker(e.latlng,{icon:startIcon}).addTo(map);
 }
 
-// END
+// FINISH
 if(routePoints.length>1){
 if(endMarker) map.removeLayer(endMarker);
 endMarker=L.marker(e.latlng,{icon:finishIcon}).addTo(map);
@@ -226,9 +245,7 @@ updateDashboard();
 }
 
 // ===== FOLLOW =====
-function toggleFollow(){
-follow=!follow;
-}
+function toggleFollow(){ follow=!follow; }
 
 // ===== DARK =====
 function toggleDark(){
@@ -252,13 +269,6 @@ var lat2=Math.asin(Math.sin(lat1)*Math.cos(d)+Math.cos(lat1)*Math.sin(d)*Math.co
 var lon2=lon1+Math.atan2(Math.sin(brngRad)*Math.sin(d)*Math.cos(lat1),Math.cos(d)-Math.sin(lat1)*Math.sin(lat2));
 
 return [lat2*180/Math.PI,lon2*180/Math.PI];
-}
-
-// ===== SEARCH =====
-function goToCoords(){
-var input=document.getElementById("coords").value.split(",");
-var lat=parseFloat(input[0]),lon=parseFloat(input[1]);
-if(!isNaN(lat)&&!isNaN(lon)) map.setView([lat,lon],13);
 }
 
 </script>
