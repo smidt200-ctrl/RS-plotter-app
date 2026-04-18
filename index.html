@@ -37,13 +37,11 @@
       border-radius:10px;
     }
 
-    /* REMOVE WHITE BOXES */
     .leaflet-div-icon {
       background:transparent !important;
       border:none !important;
     }
 
-    /* BOAT */
     .boat {
       width:0;
       height:0;
@@ -52,7 +50,6 @@
       border-bottom:20px solid red;
     }
 
-    /* START */
     .start {
       width:14px;
       height:14px;
@@ -61,7 +58,6 @@
       border-radius:50%;
     }
 
-    /* ZOOM POSITION */
     .leaflet-control-zoom {
       bottom:20px;
       right:10px;
@@ -69,7 +65,7 @@
       top:auto !important;
     }
 
-    /* ===== NEW COMPASS ===== */
+    /* COMPASS */
     #compass {
       position:absolute;
       top:10px;
@@ -104,13 +100,11 @@
       position:absolute;
       top:50%;
       left:50%;
-      width:0;
-      height:0;
       border-left:8px solid transparent;
       border-right:8px solid transparent;
       border-bottom:30px solid red;
       transform-origin:50% 90%;
-      transform:translate(-50%, -90%) rotate(0deg);
+      transform:translate(-50%, -90%);
     }
 
   </style>
@@ -132,7 +126,6 @@
   ETA: --
 </div>
 
-<!-- COMPASS -->
 <div id="compass">
   <div id="compassFace">
     <div class="dir north">N</div>
@@ -168,6 +161,15 @@ var finishIcon=L.divIcon({html:'🚩',iconSize:[20,20],className:''});
 var gpsMarker=null, watchID=null, speed=0, heading=0;
 var routePoints=[], routeLine=null, startMarker=null, endMarker=null;
 
+// ===== TRACK STORAGE =====
+var trackPoints = JSON.parse(localStorage.getItem("track") || "[]");
+var trackLine = null;
+
+// LOAD EXISTING TRACK
+if(trackPoints.length > 1){
+  trackLine = L.polyline(trackPoints, {color:'red'}).addTo(map);
+}
+
 // GPS
 function startGPS(){
 
@@ -192,24 +194,26 @@ map.setView([lat,lon],13);
 gpsMarker.setLatLng([lat,lon]);
 }
 
-// ROTATE BOAT
+// ROTATE
 document.getElementById("boat").style.transform="rotate("+heading+"deg)";
-
-// ROTATE COMPASS
-var needle=document.getElementById("needle");
-if(needle){
-needle.style.transform="translate(-50%, -90%) rotate("+heading+"deg)";
-}
+document.getElementById("needle").style.transform="translate(-50%, -90%) rotate("+heading+"deg)";
 
 // FOLLOW
 if(follow){
 map.setView([lat,lon], map.getZoom(), {animate:true});
 }
 
+// ===== TRACK SAVE =====
+var point=[lat,lon];
+trackPoints.push(point);
+localStorage.setItem("track", JSON.stringify(trackPoints));
+
+// redraw track
+if(trackLine) map.removeLayer(trackLine);
+trackLine = L.polyline(trackPoints, {color:'red'}).addTo(map);
+
 updateDashboard();
 
-}, function(err){
-alert("GPS error: "+err.message);
 },{
 enableHighAccuracy:true,
 maximumAge:0,
@@ -262,7 +266,7 @@ document.getElementById("dashboard").innerHTML=
 "ETA: "+eta;
 }
 
-// CLEAR
+// CLEAR ROUTE ONLY
 function clearRoute(){
 routePoints=[];
 if(routeLine) map.removeLayer(routeLine);
