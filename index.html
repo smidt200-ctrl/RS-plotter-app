@@ -34,22 +34,32 @@
       border-radius:10px;
     }
 
+    /* 🔥 NEW COMPASS */
     #compass {
       position:absolute;
       top:10px;
       right:10px;
-      width:60px;
-      height:60px;
-      border:2px solid white;
+      width:70px;
+      height:70px;
       border-radius:50%;
-      background:rgba(0,0,0,0.7);
-      color:white;
-      text-align:center;
-      line-height:60px;
-      font-weight:bold;
+      background:rgba(0,0,0,0.8);
+      border:2px solid white;
       z-index:1000;
+      display:flex;
+      align-items:center;
+      justify-content:center;
     }
 
+    #compassArrow {
+      width:0;
+      height:0;
+      border-left:10px solid transparent;
+      border-right:10px solid transparent;
+      border-bottom:20px solid red;
+      transform-origin: center;
+    }
+
+    /* BOAT */
     .boat {
       width:0;
       height:0;
@@ -57,6 +67,14 @@
       border-right:10px solid transparent;
       border-bottom:20px solid red;
       transform-origin: center;
+    }
+
+    /* MOVE ZOOM */
+    .leaflet-control-zoom {
+      top: auto !important;
+      bottom: 20px;
+      right: 10px;
+      left: auto !important;
     }
   </style>
 </head>
@@ -75,7 +93,11 @@
 </div>
 
 <div id="dashboard">Speed: 0<br>Heading: 0°<br>Distance: 0 km<br>ETA: --</div>
-<div id="compass">N</div>
+
+<!-- COMPASS -->
+<div id="compass">
+  <div id="compassArrow"></div>
+</div>
 
 <div id="map"></div>
 
@@ -85,13 +107,19 @@
 
 // ===== MAP =====
 var lightMap = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png');
-var darkMap = L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_dark/{z}/{x}/{y}{r}.png');
+
+// ✅ FIXED DARK MAP (no 401)
+var darkMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png');
 
 var map = L.map('map', {
   center: [-33.9, 18.4],
   zoom: 7,
-  layers: [lightMap]
+  layers: [lightMap],
+  zoomControl: true
 });
+
+// move zoom bottom right
+map.zoomControl.setPosition('bottomright');
 
 // ===== STATE =====
 var follow = false;
@@ -143,10 +171,11 @@ function startTracking() {
     var boat = document.getElementById("boat");
     if (boat) boat.style.transform = "rotate(" + heading + "deg)";
 
-    // COMPASS
-    document.getElementById("compass").innerHTML = Math.round(heading) + "°";
+    // 🧭 ROTATE COMPASS
+    var compass = document.getElementById("compassArrow");
+    if (compass) compass.style.transform = "rotate(" + heading + "deg)";
 
-    // FOLLOW MODE
+    // FOLLOW
     if (follow) map.setView([lat, lon], map.getZoom());
 
     // HEADING LINE
@@ -160,7 +189,7 @@ function startTracking() {
       }).addTo(map);
     }
 
-    // TRACK SAVE
+    // TRACK
     var point = [lat, lon];
     trackPoints.push(point);
     localStorage.setItem("track", JSON.stringify(trackPoints));
@@ -226,7 +255,7 @@ function toggleFollow() {
   alert("Follow: " + (follow ? "ON" : "OFF"));
 }
 
-// ===== DARK MODE =====
+// ===== DARK =====
 function toggleDark() {
   dark = !dark;
 
@@ -239,7 +268,7 @@ function toggleDark() {
   }
 }
 
-// ===== DESTINATION =====
+// ===== DEST =====
 function destinationPoint(lat, lon, brng, distKm) {
   var R=6371;
   var d=distKm/R;
@@ -269,10 +298,7 @@ function goToCoords() {
   var lat=parseFloat(parts[0]);
   var lon=parseFloat(parts[1]);
 
-  if (isNaN(lat)||isNaN(lon)) {
-    alert("Invalid");
-    return;
-  }
+  if (isNaN(lat)||isNaN(lon)) return;
 
   map.setView([lat,lon],13);
 }
