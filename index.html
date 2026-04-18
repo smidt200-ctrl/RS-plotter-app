@@ -33,6 +33,7 @@
       border-radius:10px;
     }
 
+    /* COMPASS */
     #compass {
       position:absolute;
       top:10px;
@@ -45,26 +46,30 @@
       display:flex;
       align-items:center;
       justify-content:center;
+      z-index:1000;
     }
 
-    #compassArrow {
+    #arrow {
       width:0;
       height:0;
       border-left:10px solid transparent;
       border-right:10px solid transparent;
-      border-bottom:20px solid red;
+      border-bottom:25px solid red;
+      transform-origin:center;
     }
 
+    /* BOAT */
     .boat {
       width:0;
       height:0;
       border-left:10px solid transparent;
       border-right:10px solid transparent;
       border-bottom:20px solid red;
+      transform-origin:center;
     }
 
-    /* BETTER MARKERS */
-    .start-marker {
+    /* CLEAN MARKERS */
+    .start {
       width:14px;
       height:14px;
       background:#00ff00;
@@ -72,11 +77,8 @@
       border-radius:50%;
     }
 
-    .finish-marker {
-      width:16px;
-      height:16px;
-      background:red;
-      clip-path: polygon(0 0, 100% 50%, 0 100%);
+    .finish {
+      font-size:18px;
     }
 
     .leaflet-control-zoom {
@@ -91,96 +93,75 @@
 <body>
 
 <div id="top" class="panel">
-  <button onclick="startTracking()">📍 GPS</button>
+  <button onclick="startGPS()">📍 GPS</button>
   <button onclick="toggleFollow()">🎯 Follow</button>
   <button onclick="toggleDark()">🌊 Dark</button>
   <button onclick="clearRoute()">❌ Clear</button>
 </div>
 
 <div id="dashboard">Speed: 0<br>Heading: 0°<br>Distance: 0 km<br>ETA: --</div>
-<div id="compass"><div id="compassArrow"></div></div>
+<div id="compass"><div id="arrow"></div></div>
 <div id="map"></div>
 
 <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
 
 <script>
 
-// ===== MAP =====
-var lightMap = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png');
-var darkMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png');
+// MAP
+var light = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png');
+var dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png');
 
-var map = L.map('map', {
-  center: [-33.9, 18.4],
-  zoom: 7,
-  layers: [lightMap]
-});
-
+var map = L.map('map',{center:[-33.9,18.4],zoom:7,layers:[light]});
 map.zoomControl.setPosition('bottomright');
 
-// ===== STATE =====
-var follow = false;
-var dark = false;
+// STATE
+var follow=false, darkMode=false;
 
-// ===== ICONS =====
-var boatIcon = L.divIcon({html:'<div class="boat" id="boat"></div>',iconSize:[20,20]});
+// ICONS
+var boatIcon=L.divIcon({html:'<div class="boat" id="boat"></div>',iconSize:[20,20]});
+var startIcon=L.divIcon({html:'<div class="start"></div>',iconSize:[14,14]});
+var finishIcon=L.divIcon({html:'🚩',iconSize:[20,20]});
 
-var startIcon = L.divIcon({
-  html:'<div class="start-marker"></div>',
-  iconSize:[14,14]
-});
+// DATA
+var gpsMarker=null, watchID=null, speed=0, heading=0;
+var routePoints=[], routeLine=null, startMarker=null, endMarker=null;
 
-var finishIcon = L.divIcon({
-  html:'<div class="finish-marker"></div>',
-  iconSize:[16,16]
-});
+// GPS FUNCTION
+function startGPS(){
 
-// ===== DATA =====
-var gpsMarker, headingLine, speed=0, heading=0;
-var routePoints=[], routeLine, startMarker, endMarker;
+if(watchID) return; // already running
 
-// ===== GPS =====
-function startTracking(){
-
-navigator.geolocation.watchPosition(function(pos){
+watchID=navigator.geolocation.watchPosition(function(pos){
 
 var lat=pos.coords.latitude;
 var lon=pos.coords.longitude;
 
-if(pos.coords.speed!=null) speed=pos.coords.speed*3.6;
-if(pos.coords.heading!=null) heading=pos.coords.heading;
+speed=pos.coords.speed?pos.coords.speed*3.6:0;
+heading=pos.coords.heading?pos.coords.heading:0;
 
-// CREATE OR UPDATE BOAT
+// BOAT
 if(!gpsMarker){
 gpsMarker=L.marker([lat,lon],{icon:boatIcon}).addTo(map);
-
-// 🔥 CENTER MAP FIRST TIME
 map.setView([lat,lon],13);
-
 }else{
 gpsMarker.setLatLng([lat,lon]);
 }
 
 // ROTATE
 document.getElementById("boat").style.transform="rotate("+heading+"deg)";
-document.getElementById("compassArrow").style.transform="rotate("+heading+"deg)";
+document.getElementById("arrow").style.transform="rotate("+heading+"deg)";
 
 // FOLLOW
-if(follow) map.setView([lat,lon]);
-
-// HEADING LINE
-if(headingLine) map.removeLayer(headingLine);
-if(speed>1){
-var dest=destinationPoint(lat,lon,heading,speed);
-headingLine=L.polyline([[lat,lon],dest],{color:'lime',dashArray:'5,5'}).addTo(map);
+if(follow){
+map.setView([lat,lon], map.getZoom(), {animate:true});
 }
 
 updateDashboard();
 
-},{enableHighAccuracy:true});
-
+},function(e){alert(e.message);},{enableHighAccuracy:true});
 }
 
-// ===== ROUTE =====
+// ROUTE
 map.on('click',function(e){
 
 routePoints.push(e.latlng);
@@ -189,7 +170,7 @@ if(routeLine) map.removeLayer(routeLine);
 routeLine=L.polyline(routePoints,{color:'cyan'}).addTo(map);
 
 // START
-if(routePoints.length==1){
+if(routePoints.length===1){
 startMarker=L.marker(e.latlng,{icon:startIcon}).addTo(map);
 }
 
@@ -202,73 +183,50 @@ endMarker=L.marker(e.latlng,{icon:finishIcon}).addTo(map);
 updateDashboard();
 });
 
-// ===== DISTANCE =====
-function calculateDistance(points){
-var total=0;
-for(var i=1;i<points.length;i++){
-total+=map.distance(points[i-1],points[i]);
-}
-return total/1000;
+// DISTANCE
+function calcDist(p){
+var t=0;
+for(var i=1;i<p.length;i++) t+=map.distance(p[i-1],p[i]);
+return t/1000;
 }
 
-// ===== DASHBOARD =====
+// DASHBOARD
 function updateDashboard(){
 
-var dist=0, eta="--";
+var d=0, eta="--";
 
 if(routePoints.length>1){
-dist=calculateDistance(routePoints);
-
-if(speed>1){
-eta=Math.round((dist/speed)*60)+" min";
-}else{
-eta="0 speed";
-}
+d=calcDist(routePoints);
+eta=speed>1?Math.round((d/speed)*60)+" min":"0 speed";
 }
 
 document.getElementById("dashboard").innerHTML=
 "Speed: "+speed.toFixed(1)+" km/h<br>"+
 "Heading: "+Math.round(heading)+"°<br>"+
-"Distance: "+dist.toFixed(2)+" km<br>"+
+"Distance: "+d.toFixed(2)+" km<br>"+
 "ETA: "+eta;
 }
 
-// ===== CLEAR =====
+// CLEAR
 function clearRoute(){
 routePoints=[];
-
 if(routeLine) map.removeLayer(routeLine);
 if(startMarker) map.removeLayer(startMarker);
 if(endMarker) map.removeLayer(endMarker);
-
 updateDashboard();
 }
 
-// ===== FOLLOW =====
-function toggleFollow(){ follow=!follow; }
+// FOLLOW
+function toggleFollow(){
+follow=!follow;
+alert("Follow "+(follow?"ON":"OFF"));
+}
 
-// ===== DARK =====
+// DARK
 function toggleDark(){
-dark=!dark;
-
-if(dark){
-map.removeLayer(lightMap);
-map.addLayer(darkMap);
-}else{
-map.removeLayer(darkMap);
-map.addLayer(lightMap);
-}
-}
-
-// ===== DEST =====
-function destinationPoint(lat,lon,brng,distKm){
-var R=6371,d=distKm/R;
-var lat1=lat*Math.PI/180,lon1=lon*Math.PI/180,brngRad=brng*Math.PI/180;
-
-var lat2=Math.asin(Math.sin(lat1)*Math.cos(d)+Math.cos(lat1)*Math.sin(d)*Math.cos(brngRad));
-var lon2=lon1+Math.atan2(Math.sin(brngRad)*Math.sin(d)*Math.cos(lat1),Math.cos(d)-Math.sin(lat1)*Math.sin(lat2));
-
-return [lat2*180/Math.PI,lon2*180/Math.PI];
+darkMode=!darkMode;
+if(darkMode){map.removeLayer(light);map.addLayer(dark);}
+else{map.removeLayer(dark);map.addLayer(light);}
 }
 
 </script>
