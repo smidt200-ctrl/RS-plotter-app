@@ -8,45 +8,25 @@
 
   <style>
     html, body { margin:0; height:100%; }
-
-    #map {
-      height: 100vh;
-      width: 100vw;
-    }
+    #map { height:100vh; width:100vw; }
 
     .panel {
-      position: absolute;
-      left: 10px;
-      z-index: 1000;
-      background: white;
-      padding: 8px;
-      border-radius: 8px;
-      margin-bottom: 5px;
-      font-size: 14px;
+      position:absolute;
+      left:10px;
+      z-index:1000;
+      background:white;
+      padding:8px;
+      border-radius:8px;
     }
 
-    #btn { top: 10px; }
-    #search { top: 60px; }
-    #mode { top: 110px; }
-
-    .active {
-      background: lightblue;
-    }
+    #mode { top:10px; }
   </style>
 </head>
 
 <body>
 
-<div id="btn" class="panel">📍 My Location</div>
-
-<div id="search" class="panel">
-  <input type="text" id="coords" placeholder="Lat, Lon">
-  <button onclick="goToCoords()">Go</button>
-</div>
-
 <div id="mode" class="panel">
-  <button id="wpBtn" onclick="setMode('waypoint')">📍 Waypoint</button>
-  <button id="rtBtn" onclick="setMode('route')">🧭 Route</button>
+  <button onclick="startTracking()">📍 Start GPS</button>
   <button onclick="clearAll()">❌ Clear</button>
 </div>
 
@@ -56,112 +36,101 @@
 
 <script>
 
-// ===== MAP =====
 var map = L.map('map').setView([-33.9, 18.4], 7);
 
-var offline = L.tileLayer('tiles/{z}/{x}/{y}.png', {
-  minZoom: 7,
-  maxZoom: 9
-});
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-var online = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png');
+// ===== DATA =====
+var routePoints = [];
+var routeLine;
+var startMarker;
+var endMarker;
+var speed = 0; // km/h
 
-offline.addTo(map);
-online.addTo(map);
+// ===== GPS TRACKING =====
+function startTracking() {
 
-setTimeout(() => map.invalidateSize(), 1000);
+  navigator.geolocation.watchPosition(function(pos) {
 
-// ===== GPS =====
-var gpsMarker;
-
-document.getElementById("btn").onclick = function() {
-  navigator.geolocation.getCurrentPosition(function(pos) {
     var lat = pos.coords.latitude;
     var lon = pos.coords.longitude;
 
-    if (gpsMarker) map.removeLayer(gpsMarker);
-
-    gpsMarker = L.marker([lat, lon]).addTo(map)
-      .bindPopup("You are here").openPopup();
+    // speed from GPS (m/s → km/h)
+    if (pos.coords.speed !== null) {
+      speed = pos.coords.speed * 3.6;
+    }
 
     map.setView([lat, lon], 13);
+
+  }, function(err) {
+    alert(err.message);
+  }, {
+    enableHighAccuracy: true
   });
-};
 
-// ===== SEARCH =====
-function goToCoords() {
-  var input = document.getElementById("coords").value;
-  var parts = input.split(",");
-
-  var lat = parseFloat(parts[0]);
-  var lon = parseFloat(parts[1]);
-
-  if (isNaN(lat) || isNaN(lon)) {
-    alert("Invalid coordinates");
-    return;
-  }
-
-  var m = L.marker([lat, lon]).addTo(map);
-  waypoints.push(m);
-
-  map.setView([lat, lon], 13);
 }
 
-// ===== MODES =====
-var mode = "waypoint";
-
-function setMode(m) {
-  mode = m;
-
-  // visual feedback
-  document.getElementById("wpBtn").classList.remove("active");
-  document.getElementById("rtBtn").classList.remove("active");
-
-  if (m === "waypoint") {
-    document.getElementById("wpBtn").classList.add("active");
-  } else {
-    document.getElementById("rtBtn").classList.add("active");
-  }
-}
-
-// ===== WAYPOINTS =====
-var waypoints = [];
-
-// ===== ROUTES =====
-var routePoints = [];
-var routeLine;
-
-// ===== MAP CLICK =====
+// ===== CLICK TO BUILD ROUTE =====
 map.on('click', function(e) {
 
-  if (mode === "waypoint") {
-    var m = L.marker(e.latlng).addTo(map)
-      .bindPopup("Waypoint");
+  routePoints.push(e.latlng);
 
-    waypoints.push(m);
+  if (routeLine) map.removeLayer(routeLine);
+
+  routeLine = L.polyline(routePoints, {color:'blue'}).addTo(map);
+
+  // START
+  if (routePoints.length === 1) {
+    startMarker = L.marker(e.latlng).addTo(map)
+      .bindPopup("START").openPopup();
   }
 
-  if (mode === "route") {
-    routePoints.push(e.latlng);
+  // FINISH + ETA
+  if (routePoints.length > 1) {
 
-    if (routeLine) map.removeLayer(routeLine);
+    if (endMarker) map.removeLayer(endMarker);
 
-    routeLine = L.polyline(routePoints, {color: 'blue'}).addTo(map);
+    var last = routePoints[routePoints.length - 1];
+
+    var distance = calculateDistance(routePoints); // km
+
+    var etaText = "No speed";
+
+    if (speed > 1) {
+      var eta = distance / speed;
+      var minutes = Math.round(eta * 60);
+      etaText = minutes + " min";
+    }
+
+    endMarker = L.marker(last).addTo(map)
+      .bindPopup(
+        "FINISH<br>" +
+        "Distance: " + distance.toFixed(2) + " km<br>" +
+        "Speed: " + speed.toFixed(1) + " km/h<br>" +
+        "ETA: " + etaText
+      ).openPopup();
   }
 
 });
 
-// ===== CLEAR EVERYTHING =====
+// ===== DISTANCE =====
+function calculateDistance(points) {
+  var total = 0;
+
+  for (var i = 1; i < points.length; i++) {
+    total += map.distance(points[i-1], points[i]);
+  }
+
+  return total / 1000;
+}
+
+// ===== CLEAR =====
 function clearAll() {
-
-  // remove waypoints
-  waypoints.forEach(m => map.removeLayer(m));
-  waypoints = [];
-
-  // remove route
   routePoints = [];
-  if (routeLine) map.removeLayer(routeLine);
 
+  if (routeLine) map.removeLayer(routeLine);
+  if (startMarker) map.removeLayer(startMarker);
+  if (endMarker) map.removeLayer(endMarker);
 }
 
 </script>
