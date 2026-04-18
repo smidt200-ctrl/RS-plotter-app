@@ -48,18 +48,18 @@ var map = L.map('map').setView([-33.9, 18.4], 7);
 
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-// ===== DATA =====
+// ===== GPS DATA =====
 var gpsMarker;
+var speed = 0;
+
+// ===== TRACK (AUTO SAVE) =====
 var trackPoints = [];
 var trackLine;
 
-// ===== LOAD SAVED TRACK =====
 if (localStorage.getItem("track")) {
   trackPoints = JSON.parse(localStorage.getItem("track"));
 
-  trackLine = L.polyline(trackPoints, {
-    color: 'red'
-  }).addTo(map);
+  trackLine = L.polyline(trackPoints, {color:'red'}).addTo(map);
 }
 
 // ===== GPS TRACKING =====
@@ -70,6 +70,10 @@ function startTracking() {
     var lat = pos.coords.latitude;
     var lon = pos.coords.longitude;
 
+    if (pos.coords.speed !== null) {
+      speed = pos.coords.speed * 3.6;
+    }
+
     // GPS marker
     if (!gpsMarker) {
       gpsMarker = L.marker([lat, lon]).addTo(map)
@@ -78,21 +82,14 @@ function startTracking() {
       gpsMarker.setLatLng([lat, lon]);
     }
 
-    // ADD POINT
+    // SAVE TRACK
     var point = [lat, lon];
     trackPoints.push(point);
-
-    // SAVE TO STORAGE
     localStorage.setItem("track", JSON.stringify(trackPoints));
 
-    // DRAW TRACK
     if (trackLine) map.removeLayer(trackLine);
 
-    trackLine = L.polyline(trackPoints, {
-      color: 'red'
-    }).addTo(map);
-
-    map.setView([lat, lon], 13);
+    trackLine = L.polyline(trackPoints, {color:'red'}).addTo(map);
 
   }, function(err) {
     alert(err.message);
@@ -105,24 +102,70 @@ function startTracking() {
 // ===== MANUAL ROUTE =====
 var routePoints = [];
 var routeLine;
+var startMarker;
+var endMarker;
 
 map.on('click', function(e) {
 
   routePoints.push(e.latlng);
 
   if (routeLine) map.removeLayer(routeLine);
+  routeLine = L.polyline(routePoints, {color:'blue'}).addTo(map);
 
-  routeLine = L.polyline(routePoints, {
-    color:'blue'
-  }).addTo(map);
+  // START
+  if (routePoints.length === 1) {
+    startMarker = L.marker(e.latlng).addTo(map)
+      .bindPopup("START").openPopup();
+  }
+
+  // FINISH + ETA
+  if (routePoints.length > 1) {
+
+    if (endMarker) map.removeLayer(endMarker);
+
+    var last = routePoints[routePoints.length - 1];
+
+    var distance = calculateDistance(routePoints);
+
+    var etaText = "No speed";
+
+    if (speed > 1) {
+      var eta = distance / speed;
+      var minutes = Math.round(eta * 60);
+      etaText = minutes + " min";
+    }
+
+    endMarker = L.marker(last).addTo(map)
+      .bindPopup(
+        "FINISH<br>" +
+        "Distance: " + distance.toFixed(2) + " km<br>" +
+        "Speed: " + speed.toFixed(1) + " km/h<br>" +
+        "ETA: " + etaText
+      ).openPopup();
+  }
 
 });
 
-// ===== CLEAR ONLY MANUAL =====
+// ===== DISTANCE =====
+function calculateDistance(points) {
+  var total = 0;
+
+  for (var i = 1; i < points.length; i++) {
+    total += map.distance(points[i-1], points[i]);
+  }
+
+  return total / 1000;
+}
+
+// ===== CLEAR MANUAL ONLY =====
 function clearManual() {
+
   routePoints = [];
 
   if (routeLine) map.removeLayer(routeLine);
+  if (startMarker) map.removeLayer(startMarker);
+  if (endMarker) map.removeLayer(endMarker);
+
 }
 
 // ===== SEARCH =====
