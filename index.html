@@ -17,7 +17,6 @@
       background:white;
       padding:8px;
       border-radius:8px;
-      font-size:14px;
     }
 
     #top { top:10px; }
@@ -38,7 +37,6 @@
       border-radius:10px;
     }
 
-    /* COMPASS */
     #compass {
       position:absolute;
       top:10px;
@@ -51,7 +49,6 @@
       display:flex;
       align-items:center;
       justify-content:center;
-      z-index:1000;
     }
 
     #arrow {
@@ -60,16 +57,13 @@
       border-left:10px solid transparent;
       border-right:10px solid transparent;
       border-bottom:25px solid red;
-      transform-origin:center;
     }
 
-    /* 🔥 REMOVE WHITE BOX FROM ALL ICONS */
     .leaflet-div-icon {
-      background: transparent !important;
-      border: none !important;
+      background:transparent !important;
+      border:none !important;
     }
 
-    /* BOAT */
     .boat {
       width:0;
       height:0;
@@ -78,18 +72,12 @@
       border-bottom:20px solid red;
     }
 
-    /* START */
     .start {
       width:14px;
       height:14px;
       background:#00ff00;
       border:2px solid white;
       border-radius:50%;
-    }
-
-    /* FINISH */
-    .finish {
-      font-size:18px;
     }
 
     .leaflet-control-zoom {
@@ -131,26 +119,36 @@ var follow=false, darkMode=false;
 // ICONS
 var boatIcon=L.divIcon({html:'<div class="boat" id="boat"></div>',iconSize:[20,20],className:''});
 var startIcon=L.divIcon({html:'<div class="start"></div>',iconSize:[14,14],className:''});
-var finishIcon=L.divIcon({html:'<div class="finish">🚩</div>',iconSize:[20,20],className:''});
+var finishIcon=L.divIcon({html:'🚩',iconSize:[20,20],className:''});
 
 // DATA
 var gpsMarker=null, watchID=null, speed=0, heading=0;
 var routePoints=[], routeLine=null, startMarker=null, endMarker=null;
 
-// GPS
+// ===== GPS FIXED =====
 function startGPS(){
 
-if(watchID) return;
+// restart if already running
+if(watchID){
+navigator.geolocation.clearWatch(watchID);
+watchID=null;
+}
 
-watchID=navigator.geolocation.watchPosition(function(pos){
+if(!navigator.geolocation){
+alert("GPS not supported on this device");
+return;
+}
+
+watchID = navigator.geolocation.watchPosition(
+function(pos){
 
 var lat=pos.coords.latitude;
 var lon=pos.coords.longitude;
 
-speed=pos.coords.speed?pos.coords.speed*3.6:0;
-heading=pos.coords.heading?pos.coords.heading:0;
+speed = pos.coords.speed ? pos.coords.speed*3.6 : 0;
+heading = pos.coords.heading ? pos.coords.heading : 0;
 
-// BOAT
+// create marker
 if(!gpsMarker){
 gpsMarker=L.marker([lat,lon],{icon:boatIcon}).addTo(map);
 map.setView([lat,lon],13);
@@ -158,18 +156,33 @@ map.setView([lat,lon],13);
 gpsMarker.setLatLng([lat,lon]);
 }
 
-// ROTATE
+// rotate
 document.getElementById("boat").style.transform="rotate("+heading+"deg)";
 document.getElementById("arrow").style.transform="rotate("+heading+"deg)";
 
-// FOLLOW
+// follow
 if(follow){
 map.setView([lat,lon], map.getZoom(), {animate:true});
 }
 
 updateDashboard();
 
-},{enableHighAccuracy:true});
+},
+function(error){
+
+if(error.code === 1){
+alert("Please allow GPS permission");
+}else{
+alert("GPS error: " + error.message);
+}
+
+},
+{
+enableHighAccuracy:true,
+maximumAge:0,
+timeout:10000
+});
+
 }
 
 // ROUTE
@@ -180,12 +193,10 @@ routePoints.push(e.latlng);
 if(routeLine) map.removeLayer(routeLine);
 routeLine=L.polyline(routePoints,{color:'cyan'}).addTo(map);
 
-// START
 if(routePoints.length===1){
 startMarker=L.marker(e.latlng,{icon:startIcon}).addTo(map);
 }
 
-// FINISH
 if(routePoints.length>1){
 if(endMarker) map.removeLayer(endMarker);
 endMarker=L.marker(e.latlng,{icon:finishIcon}).addTo(map);
@@ -211,7 +222,7 @@ d=calcDist(routePoints);
 eta=speed>1?Math.round((d/speed)*60)+" min":"0 speed";
 }
 
-document.getElementById("dashboard").innerHTML=
+document.getElementById("dashboard").innerHTML =
 "Speed: "+speed.toFixed(1)+" km/h<br>"+
 "Heading: "+Math.round(heading)+"°<br>"+
 "Distance: "+d.toFixed(2)+" km<br>"+
@@ -227,16 +238,10 @@ if(endMarker) map.removeLayer(endMarker);
 updateDashboard();
 }
 
-// FOLLOW BUTTON COLOR
+// FOLLOW
 function toggleFollow(){
 follow=!follow;
-
-var btn=document.getElementById("followBtn");
-if(follow){
-btn.classList.add("active");
-}else{
-btn.classList.remove("active");
-}
+document.getElementById("followBtn").classList.toggle("active", follow);
 }
 
 // DARK
