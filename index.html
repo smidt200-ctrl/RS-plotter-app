@@ -50,15 +50,17 @@ L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
 // ===== DATA =====
 var gpsMarker;
-var speed = 0;
-
-// AUTO TRACK (your movement)
 var trackPoints = [];
 var trackLine;
 
-// MANUAL ROUTE
-var routePoints = [];
-var routeLine;
+// ===== LOAD SAVED TRACK =====
+if (localStorage.getItem("track")) {
+  trackPoints = JSON.parse(localStorage.getItem("track"));
+
+  trackLine = L.polyline(trackPoints, {
+    color: 'red'
+  }).addTo(map);
+}
 
 // ===== GPS TRACKING =====
 function startTracking() {
@@ -68,11 +70,6 @@ function startTracking() {
     var lat = pos.coords.latitude;
     var lon = pos.coords.longitude;
 
-    // speed
-    if (pos.coords.speed !== null) {
-      speed = pos.coords.speed * 3.6;
-    }
-
     // GPS marker
     if (!gpsMarker) {
       gpsMarker = L.marker([lat, lon]).addTo(map)
@@ -81,10 +78,14 @@ function startTracking() {
       gpsMarker.setLatLng([lat, lon]);
     }
 
-    // ===== AUTO TRACK LINE =====
+    // ADD POINT
     var point = [lat, lon];
     trackPoints.push(point);
 
+    // SAVE TO STORAGE
+    localStorage.setItem("track", JSON.stringify(trackPoints));
+
+    // DRAW TRACK
     if (trackLine) map.removeLayer(trackLine);
 
     trackLine = L.polyline(trackPoints, {
@@ -102,6 +103,9 @@ function startTracking() {
 }
 
 // ===== MANUAL ROUTE =====
+var routePoints = [];
+var routeLine;
+
 map.on('click', function(e) {
 
   routePoints.push(e.latlng);
