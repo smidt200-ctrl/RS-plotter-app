@@ -111,8 +111,14 @@ var follow=false,seaOn=true,courseUp=false;
 
 // ICONS
 var boatIcon=L.divIcon({html:'<div class="boat" id="boat"></div>',iconSize:[20,20]});
-var startIcon=L.divIcon({html:'<div class="start"></div>',iconSize:[14,14]});
-var finishIcon=L.divIcon({html:'🚩',iconSize:[20,20]});
+
+// WAYPOINT ICON FUNCTION
+function getIcon(type){
+if(type==="fish") return "🐟";
+if(type==="reef") return "🪨";
+if(type==="danger") return "⚠️";
+return "📍";
+}
 
 // DATA
 var gpsMarker=null,watchID=null,speed=0,heading=0;
@@ -135,7 +141,12 @@ waypointMarkers.forEach(m=>map.removeLayer(m));
 waypointMarkers=[];
 
 waypoints.forEach((w,i)=>{
-var marker=L.marker([w.lat,w.lng]).addTo(map);
+
+var marker=L.marker([w.lat,w.lng],{
+icon:L.divIcon({
+html:"<div style='font-size:20px;'>"+getIcon(w.type)+"</div>"
+})
+}).addTo(map);
 
 marker.bindPopup(
 "<b>"+w.name+"</b><br><br>"+
@@ -147,6 +158,7 @@ waypointMarkers.push(marker);
 });
 }
 
+// ADD WAYPOINT (GPS)
 function addWaypoint(){
 if(!gpsMarker) return;
 
@@ -154,30 +166,32 @@ var pos=gpsMarker.getLatLng();
 var name=prompt("Waypoint name:");
 if(!name) name="Waypoint";
 
-waypoints.push({lat:pos.lat,lng:pos.lng,name:name});
+var type=prompt("Type: fish / reef / danger");
+if(!type) type="default";
+
+waypoints.push({lat:pos.lat,lng:pos.lng,name:name,type:type});
 localStorage.setItem("wps",JSON.stringify(waypoints));
 
 drawWaypoints();
 }
 
+// RENAME / DELETE
 function renameWaypoint(i){
 var newName=prompt("New name:",waypoints[i].name);
 if(!newName) return;
 
 waypoints[i].name=newName;
 localStorage.setItem("wps",JSON.stringify(waypoints));
-
 drawWaypoints();
 }
 
 function deleteWaypoint(i){
 waypoints.splice(i,1);
 localStorage.setItem("wps",JSON.stringify(waypoints));
-
 drawWaypoints();
 }
 
-// 🔥 LONG PRESS WAYPOINT
+// LONG PRESS WAYPOINT
 var pressTimer;
 
 map.on('mousedown', function(e){
@@ -186,10 +200,14 @@ pressTimer=setTimeout(function(){
 var name=prompt("Waypoint name:");
 if(!name) name="Waypoint";
 
+var type=prompt("Type: fish / reef / danger");
+if(!type) type="default";
+
 waypoints.push({
 lat:e.latlng.lat,
 lng:e.latlng.lng,
-name:name
+name:name,
+type:type
 });
 
 localStorage.setItem("wps",JSON.stringify(waypoints));
@@ -241,15 +259,20 @@ map.setView([lat,lon],13);
 gpsMarker.setLatLng([lat,lon]);
 }
 
+// rotate
 var boat=document.getElementById("boat");
 if(boat) boat.style.transform="rotate("+heading+"deg)";
 
 var needle=document.getElementById("needle");
 if(needle) needle.style.transform="translate(-50%,-90%) rotate("+heading+"deg)";
 
+// course
 if(courseUp){ map.setBearing(heading); }
+
+// follow
 if(follow){ map.setView([lat,lon],map.getZoom()); }
 
+// track
 var point=[lat,lon];
 
 if(trackPoints.length===0 || map.distance(trackPoints[trackPoints.length-1],point)>3){
@@ -276,12 +299,12 @@ if(routeLine) map.removeLayer(routeLine);
 routeLine=L.polyline(routePoints,{color:'cyan'}).addTo(map);
 
 if(routePoints.length===1){
-startMarker=L.marker(e.latlng,{icon:startIcon}).addTo(map);
+startMarker=L.marker(e.latlng,{icon:L.divIcon({html:'<div class="start"></div>'})}).addTo(map);
 }
 
 if(routePoints.length>1){
 if(endMarker) map.removeLayer(endMarker);
-endMarker=L.marker(e.latlng,{icon:finishIcon}).addTo(map);
+endMarker=L.marker(e.latlng,{icon:L.divIcon({html:'🚩'})}).addTo(map);
 }
 
 updateDashboard();
