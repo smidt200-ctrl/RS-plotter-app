@@ -10,18 +10,71 @@
 html,body{margin:0;height:100%;}
 #map{height:100vh;width:100vw;}
 
-.panel{
-position:absolute;top:10px;left:10px;
-z-index:1000;background:white;padding:8px;border-radius:8px;
+/* 📱 CONTROLS */
+#controls{
+position:absolute;
+bottom:10px;
+left:50%;
+transform:translateX(-50%);
+display:flex;
+gap:8px;
+z-index:1000;
+background:rgba(0,0,0,0.7);
+padding:10px;
+border-radius:20px;
 }
 
-button.active{background:limegreen;color:white;}
+#controls button{
+font-size:18px;
+padding:12px;
+border:none;
+border-radius:12px;
+color:white;
+background:#333;
+min-width:50px;
+}
 
+#controls button.active{
+background:limegreen;
+}
+
+/* DASH */
 #dashboard{
-position:absolute;bottom:10px;left:10px;
-background:black;color:white;padding:10px;border-radius:10px;z-index:1000;
+position:absolute;
+top:10px;
+left:10px;
+background:rgba(0,0,0,0.7);
+color:white;
+padding:8px;
+border-radius:10px;
+font-size:13px;
+z-index:1000;
 }
 
+/* COMPASS */
+#compass{
+position:absolute;
+top:10px;
+right:10px;
+width:70px;
+height:70px;
+z-index:1000;
+background:rgba(0,0,0,0.6);
+border-radius:50%;
+}
+
+#needle{
+position:absolute;
+top:50%;
+left:50%;
+border-left:6px solid transparent;
+border-right:6px solid transparent;
+border-bottom:20px solid red;
+transform-origin:50% 90%;
+transform:translate(-50%,-90%);
+}
+
+/* ICONS */
 .leaflet-div-icon{background:transparent;border:none;}
 
 .boat{
@@ -36,41 +89,30 @@ width:14px;height:14px;
 background:#0f0;border:2px solid white;border-radius:50%;
 }
 
-#compass{
-position:absolute;top:10px;right:10px;width:90px;height:90px;z-index:1000;
-}
-
-#needle{
-position:absolute;top:50%;left:50%;
-border-left:8px solid transparent;
-border-right:8px solid transparent;
-border-bottom:30px solid red;
-transform-origin:50% 90%;
-transform:translate(-50%,-90%);
-}
-
+/* ZOOM */
 .leaflet-control-zoom{
-bottom:20px;right:10px;left:auto!important;top:auto!important;
+bottom:80px;
+right:10px;
+left:auto!important;
+top:auto!important;
 }
 </style>
 </head>
 
 <body>
 
-<div class="panel">
+<div id="controls">
 <button onclick="startGPS()">📍</button>
 <button id="followBtn" onclick="toggleFollow()">🎯</button>
-<button onclick="toggleSea()">⚓</button>
 <button onclick="toggleCourse()">🧭</button>
+<button onclick="toggleSea()">⚓</button>
+<button onclick="addWaypoint()">📍+</button>
 <button onclick="saveTrip()">💾</button>
-<button onclick="addWaypoint()">📍 WP</button>
 <button onclick="clearRoute()">❌</button>
 </div>
 
 <div id="dashboard">Speed:0<br>Heading:0<br>Distance:0<br>ETA:--</div>
-
 <div id="compass"><div id="needle"></div></div>
-
 <div id="map"></div>
 
 <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
@@ -83,11 +125,11 @@ var light=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png');
 var seamap=L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png');
 
 var map=L.map('map',{
-  center:[-33.9,18.4],
-  zoom:7,
-  layers:[light,seamap],
-  rotate:true,
-  bearing:0
+center:[-33.9,18.4],
+zoom:7,
+layers:[light,seamap],
+rotate:true,
+bearing:0
 });
 
 map.zoomControl.setPosition('bottomright');
@@ -120,7 +162,7 @@ waypoints.forEach(w=>L.marker(w).addTo(map));
 var headingLine=null;
 var headingMarkers=[];
 
-// GPS (STABLE)
+// GPS
 function startGPS(){
 
 if(watchID!==null){
@@ -142,24 +184,24 @@ map.setView([lat,lon],13);
 gpsMarker.setLatLng([lat,lon]);
 }
 
-// ROTATE ICONS
+// rotate icons
 var boat=document.getElementById("boat");
 if(boat) boat.style.transform="rotate("+heading+"deg)";
 
 var needle=document.getElementById("needle");
 if(needle) needle.style.transform="translate(-50%,-90%) rotate("+heading+"deg)";
 
-// COURSE UP
+// course
 if(courseUp){
 map.setBearing(heading);
 }
 
-// FOLLOW
+// follow
 if(follow){
 map.setView([lat,lon],map.getZoom());
 }
 
-// TRACK SAVE
+// track
 var point=[lat,lon];
 
 if(trackPoints.length===0 || map.distance(trackPoints[trackPoints.length-1],point)>3){
@@ -170,7 +212,7 @@ if(trackLine) map.removeLayer(trackLine);
 trackLine=L.polyline(trackPoints,{color:'red'}).addTo(map);
 }
 
-// 🔥 HEADING LINE
+// heading line
 updateHeadingLine(lat,lon);
 
 updateDashboard();
@@ -179,22 +221,22 @@ updateDashboard();
 
 }
 
-// 🔥 SMART HEADING LINE
+// HEADING LINE
 function updateHeadingLine(lat, lon){
 
 if(headingLine) map.removeLayer(headingLine);
 headingMarkers.forEach(m=>map.removeLayer(m));
 headingMarkers=[];
 
-if(speed < 1) return;
+if(speed < 1){ speed = 5; }
 
 var distance=speed*1000;
 var rad=heading*Math.PI/180;
 
-function project(dist){
+function project(d){
 return[
-lat+(dist*Math.cos(rad))/111320,
-lon+(dist*Math.sin(rad))/(111320*Math.cos(lat*Math.PI/180))
+lat+(d*Math.cos(rad))/111320,
+lon+(d*Math.sin(rad))/(111320*Math.cos(lat*Math.PI/180))
 ];
 }
 
@@ -202,37 +244,37 @@ var p10=project(distance*0.166);
 var p30=project(distance*0.5);
 var p60=project(distance);
 
-// COLOR
+// color
 var color="yellow";
 if(speed>25) color="red";
 else if(speed>10) color="orange";
 
-// MAIN LINE
 headingLine=L.polyline([[lat,lon],p60],{
-color:color,weight:4,opacity:0.9
+color:color,weight:4
 }).addTo(map);
 
-// COLLISION GLOW
+// glow
 if(speed>20){
 L.polyline([[lat,lon],p60],{
 color:"red",weight:10,opacity:0.2
 }).addTo(map);
 }
 
-// MARKERS
-function addMarker(point,label){
-var m=L.marker(point,{
+// markers
+function mark(p,t){
+headingMarkers.push(
+L.marker(p,{
 icon:L.divIcon({
-html:'<div style="color:white;background:black;padding:2px 4px;border-radius:4px;font-size:10px;">'+label+'</div>',
+html:'<div style="color:white;background:black;padding:2px 4px;border-radius:4px;font-size:10px;">'+t+'</div>',
 className:''
 })
-}).addTo(map);
-headingMarkers.push(m);
+}).addTo(map)
+);
 }
 
-addMarker(p10,"10m");
-addMarker(p30,"30m");
-addMarker(p60,"60m");
+mark(p10,"10m");
+mark(p30,"30m");
+mark(p60,"60m");
 
 }
 
@@ -256,14 +298,13 @@ endMarker=L.marker(e.latlng,{icon:finishIcon}).addTo(map);
 updateDashboard();
 });
 
-// DIST
+// DASH
 function calcDist(p){
 var t=0;
 for(var i=1;i<p.length;i++) t+=map.distance(p[i-1],p[i]);
 return t/1000;
 }
 
-// DASH
 function updateDashboard(){
 var d=0,eta="--";
 
