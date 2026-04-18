@@ -23,6 +23,19 @@
     #top { top:10px; }
     #search { top:60px; }
 
+    #dashboard {
+      position:absolute;
+      bottom:10px;
+      left:10px;
+      z-index:1000;
+      background:black;
+      color:white;
+      padding:10px;
+      border-radius:10px;
+      font-size:14px;
+      min-width:150px;
+    }
+
     .boat {
       width:0;
       height:0;
@@ -44,6 +57,14 @@
 <div id="search" class="panel">
   <input type="text" id="coords" placeholder="Lat, Lon">
   <button onclick="goToCoords()">Go</button>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard">
+  Speed: 0 km/h<br>
+  Heading: 0°<br>
+  Distance: 0 km<br>
+  ETA: --
 </div>
 
 <div id="map"></div>
@@ -128,20 +149,18 @@ function startTracking() {
       }
     }, 50);
 
-    // HEADING LINE (1 hour)
+    // HEADING LINE
     if (headingLine) map.removeLayer(headingLine);
 
     if (speed > 1) {
-      var distanceKm = speed;
-      var dest = destinationPoint(lat, lon, heading, distanceKm);
-
+      var dest = destinationPoint(lat, lon, heading, speed);
       headingLine = L.polyline([[lat, lon], dest], {
-        color: 'green',
-        dashArray: '5,5'
+        color:'green',
+        dashArray:'5,5'
       }).addTo(map);
     }
 
-    // SAVE TRACK
+    // TRACK SAVE
     var point = [lat, lon];
     trackPoints.push(point);
     localStorage.setItem("track", JSON.stringify(trackPoints));
@@ -149,7 +168,7 @@ function startTracking() {
     if (trackLine) map.removeLayer(trackLine);
     trackLine = L.polyline(trackPoints, {color:'red'}).addTo(map);
 
-    updateETA();
+    updateDashboard();
 
   }, function(err) {
     alert(err.message);
@@ -158,7 +177,7 @@ function startTracking() {
   });
 }
 
-// ===== CLICK ROUTE =====
+// ===== ROUTE CLICK =====
 map.on('click', function(e) {
 
   routePoints.push(e.latlng);
@@ -166,21 +185,16 @@ map.on('click', function(e) {
   if (routeLine) map.removeLayer(routeLine);
   routeLine = L.polyline(routePoints, {color:'blue'}).addTo(map);
 
-  // START MARKER
   if (routePoints.length === 1) {
-    startMarker = L.marker(e.latlng, {icon:startIcon}).addTo(map)
-      .bindPopup("START");
+    startMarker = L.marker(e.latlng, {icon:startIcon}).addTo(map);
   }
 
-  // FINISH MARKER
   if (routePoints.length > 1) {
-
     if (endMarker) map.removeLayer(endMarker);
-
     endMarker = L.marker(e.latlng, {icon:finishIcon}).addTo(map);
   }
 
-  updateETA();
+  updateDashboard();
 });
 
 // ===== DISTANCE =====
@@ -192,38 +206,38 @@ function calculateDistance(points) {
   return total / 1000;
 }
 
-// ===== ETA =====
-function updateETA() {
+// ===== DASHBOARD =====
+function updateDashboard() {
 
-  if (routePoints.length < 2 || !endMarker) return;
+  var distance = 0;
+  var etaText = "--";
 
-  var distance = calculateDistance(routePoints);
+  if (routePoints.length > 1) {
+    distance = calculateDistance(routePoints);
 
-  var etaText;
-
-  if (speed > 1) {
-    var eta = distance / speed;
-    etaText = Math.round(eta * 60) + " min";
-  } else {
-    etaText = "Speed = 0";
+    if (speed > 1) {
+      var eta = distance / speed;
+      etaText = Math.round(eta * 60) + " min";
+    } else {
+      etaText = "0 speed";
+    }
   }
 
-  endMarker.bindPopup(
-    "🚩 FINISH<br>" +
-    "Distance: " + distance.toFixed(2) + " km<br>" +
+  document.getElementById("dashboard").innerHTML =
     "Speed: " + speed.toFixed(1) + " km/h<br>" +
-    "ETA: " + etaText
-  ).openPopup();
+    "Heading: " + Math.round(heading) + "°<br>" +
+    "Distance: " + distance.toFixed(2) + " km<br>" +
+    "ETA: " + etaText;
 }
 
-// ===== DESTINATION POINT =====
+// ===== DESTINATION =====
 function destinationPoint(lat, lon, brng, distKm) {
   var R = 6371;
   var d = distKm / R;
 
-  var lat1 = lat * Math.PI/180;
-  var lon1 = lon * Math.PI/180;
-  var brngRad = brng * Math.PI/180;
+  var lat1 = lat*Math.PI/180;
+  var lon1 = lon*Math.PI/180;
+  var brngRad = brng*Math.PI/180;
 
   var lat2 = Math.asin(
     Math.sin(lat1)*Math.cos(d) +
@@ -245,6 +259,8 @@ function clearManual() {
   if (routeLine) map.removeLayer(routeLine);
   if (startMarker) map.removeLayer(startMarker);
   if (endMarker) map.removeLayer(endMarker);
+
+  updateDashboard();
 }
 
 // ===== SEARCH =====
