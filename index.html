@@ -115,6 +115,7 @@
   <button onclick="startGPS()">📍 GPS</button>
   <button id="followBtn" onclick="toggleFollow()">🎯 Follow</button>
   <button onclick="toggleDark()">🌊 Dark</button>
+  <button onclick="toggleSea()">⚓ Sea</button>
   <button onclick="clearRoute()">❌ Clear</button>
 </div>
 
@@ -141,19 +142,25 @@
 
 <script>
 
-// MAP
+// MAP LAYERS
 var light = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png');
-  var seamap = L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png', {
-  maxZoom: 18,
-  attribution: "© OpenSeaMap"
-});
+
 var dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png');
 
-var map = L.map('map',{center:[-33.9,18.4],zoom:7,layers:[light]});
+var seamap = L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png', {
+  maxZoom: 18
+});
+
+var map = L.map('map',{
+  center:[-33.9,18.4],
+  zoom:7,
+  layers:[light, seamap]
+});
+
 map.zoomControl.setPosition('bottomright');
 
 // STATE
-var follow=false, darkMode=false;
+var follow=false, darkMode=false, seaOn=true;
 
 // ICONS
 var boatIcon=L.divIcon({html:'<div class="boat" id="boat"></div>',iconSize:[20,20],className:''});
@@ -172,7 +179,7 @@ if(trackPoints.length > 1){
   trackLine = L.polyline(trackPoints, {color:'red'}).addTo(map);
 }
 
-// GPS (STABLE)
+// GPS
 function startGPS(){
 
 if (watchID !== null){
@@ -180,20 +187,13 @@ if (watchID !== null){
   watchID = null;
 }
 
-if (!navigator.geolocation){
-  alert("GPS not supported");
-  return;
-}
-
-watchID = navigator.geolocation.watchPosition(
-
-function(pos){
+watchID = navigator.geolocation.watchPosition(function(pos){
 
   var lat = pos.coords.latitude;
   var lon = pos.coords.longitude;
 
-  speed = (pos.coords.speed != null) ? pos.coords.speed * 3.6 : 0;
-  heading = (pos.coords.heading != null) ? pos.coords.heading : 0;
+  speed = pos.coords.speed ? pos.coords.speed*3.6 : 0;
+  heading = pos.coords.heading ? pos.coords.heading : 0;
 
   if (!gpsMarker){
     gpsMarker = L.marker([lat, lon], {icon: boatIcon}).addTo(map);
@@ -202,40 +202,26 @@ function(pos){
     gpsMarker.setLatLng([lat, lon]);
   }
 
-  // ROTATE
-  var boat = document.getElementById("boat");
-  if (boat) boat.style.transform = "rotate(" + heading + "deg)";
+  document.getElementById("boat").style.transform="rotate("+heading+"deg)";
+  document.getElementById("needle").style.transform="translate(-50%, -90%) rotate("+heading+"deg)";
 
-  var needle = document.getElementById("needle");
-  if (needle) needle.style.transform = "translate(-50%, -90%) rotate(" + heading + "deg)";
-
-  // FOLLOW
   if (follow){
     map.setView([lat, lon], map.getZoom(), {animate:true});
   }
 
-  // TRACK SAVE
-  var point = [lat, lon];
+  var point=[lat,lon];
 
-  if (trackPoints.length === 0 || 
-      map.distance(trackPoints[trackPoints.length - 1], point) > 3){
+  if(trackPoints.length===0 || map.distance(trackPoints[trackPoints.length-1],point)>3){
+    trackPoints.push(point);
+    localStorage.setItem("track", JSON.stringify(trackPoints));
 
-      trackPoints.push(point);
-      localStorage.setItem("track", JSON.stringify(trackPoints));
-
-      if (trackLine) map.removeLayer(trackLine);
-      trackLine = L.polyline(trackPoints, {color:'red'}).addTo(map);
+    if(trackLine) map.removeLayer(trackLine);
+    trackLine=L.polyline(trackPoints,{color:'red'}).addTo(map);
   }
 
   updateDashboard();
 
-},
-
-function(error){
-  console.log(error);
-},
-
-{
+},{
   enableHighAccuracy:true,
   maximumAge:0,
   timeout:15000
@@ -272,7 +258,6 @@ return t/1000;
 
 // DASH
 function updateDashboard(){
-
 var d=0, eta="--";
 
 if(routePoints.length>1){
@@ -287,7 +272,7 @@ document.getElementById("dashboard").innerHTML=
 "ETA: "+eta;
 }
 
-// CLEAR ROUTE ONLY
+// CLEAR
 function clearRoute(){
 routePoints=[];
 if(routeLine) map.removeLayer(routeLine);
@@ -307,6 +292,13 @@ function toggleDark(){
 darkMode=!darkMode;
 if(darkMode){map.removeLayer(light);map.addLayer(dark);}
 else{map.removeLayer(dark);map.addLayer(light);}
+}
+
+// SEA LAYER
+function toggleSea(){
+seaOn=!seaOn;
+if(seaOn){map.addLayer(seamap);}
+else{map.removeLayer(seamap);}
 }
 
 </script>
