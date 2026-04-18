@@ -24,7 +24,11 @@
     #search { top:60px; }
 
     .boat {
-      font-size: 28px;
+      width:0;
+      height:0;
+      border-left:10px solid transparent;
+      border-right:10px solid transparent;
+      border-bottom:20px solid red;
       transform-origin: center;
     }
   </style>
@@ -52,27 +56,16 @@
 var map = L.map('map').setView([-33.9, 18.4], 7);
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-// ===== ICONS =====
+// ===== BOAT ICON =====
 var boatIcon = L.divIcon({
-  html: '<div class="boat" id="boat">🛥️</div>',
-  iconSize: [30,30],
-  className: ''
-});
-
-var startIcon = L.divIcon({
-  html: '<div style="font-size:20px;">🟢</div>',
-  iconSize: [20,20],
-  className: ''
-});
-
-var finishIcon = L.divIcon({
-  html: '<div style="font-size:20px;">🚩</div>',
+  html: '<div class="boat" id="boat"></div>',
   iconSize: [20,20],
   className: ''
 });
 
 // ===== DATA =====
 var gpsMarker;
+var headingLine;
 var speed = 0;
 var heading = 0;
 
@@ -114,7 +107,7 @@ function startTracking() {
       gpsMarker.setLatLng([lat, lon]);
     }
 
-    // ROTATE
+    // ROTATE TRIANGLE
     setTimeout(function() {
       var boat = document.getElementById("boat");
       if (boat) {
@@ -122,7 +115,20 @@ function startTracking() {
       }
     }, 50);
 
-    // TRACK SAVE
+    // ===== HEADING LINE (1 HOUR) =====
+    if (headingLine) map.removeLayer(headingLine);
+
+    if (speed > 1) {
+      var distanceKm = speed * 1; // 1 hour distance
+      var dest = destinationPoint(lat, lon, heading, distanceKm);
+
+      headingLine = L.polyline([[lat, lon], dest], {
+        color: 'green',
+        dashArray: '5,5'
+      }).addTo(map);
+    }
+
+    // SAVE TRACK
     var point = [lat, lon];
     trackPoints.push(point);
     localStorage.setItem("track", JSON.stringify(trackPoints));
@@ -130,7 +136,6 @@ function startTracking() {
     if (trackLine) map.removeLayer(trackLine);
     trackLine = L.polyline(trackPoints, {color:'red'}).addTo(map);
 
-    // 🔥 UPDATE ETA LIVE
     updateETA();
 
   }, function(err) {
@@ -140,7 +145,7 @@ function startTracking() {
   });
 }
 
-// ===== CLICK ROUTE =====
+// ===== ROUTE CLICK =====
 map.on('click', function(e) {
 
   routePoints.push(e.latlng);
@@ -149,13 +154,14 @@ map.on('click', function(e) {
   routeLine = L.polyline(routePoints, {color:'blue'}).addTo(map);
 
   if (routePoints.length === 1) {
-    startMarker = L.marker(e.latlng, {icon:startIcon}).addTo(map);
+    startMarker = L.marker(e.latlng).addTo(map)
+      .bindPopup("START");
   }
 
   if (routePoints.length > 1) {
     if (endMarker) map.removeLayer(endMarker);
 
-    endMarker = L.marker(e.latlng, {icon:finishIcon}).addTo(map);
+    endMarker = L.marker(e.latlng).addTo(map);
   }
 
   updateETA();
@@ -170,19 +176,20 @@ function calculateDistance(points) {
   return total / 1000;
 }
 
-// ===== UPDATE ETA =====
+// ===== ETA =====
 function updateETA() {
 
   if (routePoints.length < 2 || !endMarker) return;
 
   var distance = calculateDistance(routePoints);
 
-  var etaText = "Waiting for speed...";
+  var etaText;
 
   if (speed > 1) {
     var eta = distance / speed;
-    var minutes = Math.round(eta * 60);
-    etaText = minutes + " min";
+    etaText = Math.round(eta * 60) + " min";
+  } else {
+    etaText = "Speed = 0";
   }
 
   endMarker.bindPopup(
@@ -190,7 +197,29 @@ function updateETA() {
     "Distance: " + distance.toFixed(2) + " km<br>" +
     "Speed: " + speed.toFixed(1) + " km/h<br>" +
     "ETA: " + etaText
+  ).openPopup();
+}
+
+// ===== DESTINATION POINT =====
+function destinationPoint(lat, lon, brng, distKm) {
+  var R = 6371;
+  var d = distKm / R;
+
+  var lat1 = lat * Math.PI/180;
+  var lon1 = lon * Math.PI/180;
+  var brngRad = brng * Math.PI/180;
+
+  var lat2 = Math.asin(
+    Math.sin(lat1)*Math.cos(d) +
+    Math.cos(lat1)*Math.sin(d)*Math.cos(brngRad)
   );
+
+  var lon2 = lon1 + Math.atan2(
+    Math.sin(brngRad)*Math.sin(d)*Math.cos(lat1),
+    Math.cos(d)-Math.sin(lat1)*Math.sin(lat2)
+  );
+
+  return [lat2*180/Math.PI, lon2*180/Math.PI];
 }
 
 // ===== CLEAR =====
