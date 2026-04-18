@@ -4,7 +4,6 @@
   <title>RS Plotter App</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"/>
 
   <style>
@@ -29,6 +28,10 @@
     #btn { top: 10px; }
     #search { top: 60px; }
     #mode { top: 110px; }
+
+    .active {
+      background: lightblue;
+    }
   </style>
 </head>
 
@@ -42,63 +45,47 @@
 </div>
 
 <div id="mode" class="panel">
-  <button onclick="setMode('waypoint')">📍 Waypoint</button>
-  <button onclick="setMode('route')">🧭 Route</button>
-  <button onclick="clearRoute()">❌ Clear</button>
+  <button id="wpBtn" onclick="setMode('waypoint')">📍 Waypoint</button>
+  <button id="rtBtn" onclick="setMode('route')">🧭 Route</button>
+  <button onclick="clearAll()">❌ Clear</button>
 </div>
 
 <div id="map"></div>
 
-<!-- Leaflet JS -->
 <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
 
 <script>
 
-// ===== INIT MAP =====
+// ===== MAP =====
 var map = L.map('map').setView([-33.9, 18.4], 7);
 
-// ===== OFFLINE LAYER =====
 var offline = L.tileLayer('tiles/{z}/{x}/{y}.png', {
   minZoom: 7,
   maxZoom: 9
 });
 
-// ===== ONLINE BACKUP =====
-var online = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  maxZoom: 18
-});
+var online = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png');
 
-// LOAD BOTH
 offline.addTo(map);
 online.addTo(map);
 
-// FIX RENDER BUG
-setTimeout(function() {
-  map.invalidateSize();
-}, 1000);
+setTimeout(() => map.invalidateSize(), 1000);
 
 // ===== GPS =====
-var marker;
+var gpsMarker;
 
 document.getElementById("btn").onclick = function() {
+  navigator.geolocation.getCurrentPosition(function(pos) {
+    var lat = pos.coords.latitude;
+    var lon = pos.coords.longitude;
 
-  navigator.geolocation.getCurrentPosition(function(position) {
+    if (gpsMarker) map.removeLayer(gpsMarker);
 
-    var lat = position.coords.latitude;
-    var lon = position.coords.longitude;
-
-    if (marker) map.removeLayer(marker);
-
-    marker = L.marker([lat, lon]).addTo(map)
-      .bindPopup("You are here")
-      .openPopup();
+    gpsMarker = L.marker([lat, lon]).addTo(map)
+      .bindPopup("You are here").openPopup();
 
     map.setView([lat, lon], 13);
-
-  }, function(err) {
-    alert(err.message);
   });
-
 };
 
 // ===== SEARCH =====
@@ -114,9 +101,8 @@ function goToCoords() {
     return;
   }
 
-  L.marker([lat, lon]).addTo(map)
-    .bindPopup("Custom point")
-    .openPopup();
+  var m = L.marker([lat, lon]).addTo(map);
+  waypoints.push(m);
 
   map.setView([lat, lon], 13);
 }
@@ -126,18 +112,33 @@ var mode = "waypoint";
 
 function setMode(m) {
   mode = m;
+
+  // visual feedback
+  document.getElementById("wpBtn").classList.remove("active");
+  document.getElementById("rtBtn").classList.remove("active");
+
+  if (m === "waypoint") {
+    document.getElementById("wpBtn").classList.add("active");
+  } else {
+    document.getElementById("rtBtn").classList.add("active");
+  }
 }
 
-// ===== WAYPOINT + ROUTE =====
+// ===== WAYPOINTS =====
+var waypoints = [];
+
+// ===== ROUTES =====
 var routePoints = [];
 var routeLine;
 
+// ===== MAP CLICK =====
 map.on('click', function(e) {
 
   if (mode === "waypoint") {
-    L.marker(e.latlng).addTo(map)
-      .bindPopup("Waypoint")
-      .openPopup();
+    var m = L.marker(e.latlng).addTo(map)
+      .bindPopup("Waypoint");
+
+    waypoints.push(m);
   }
 
   if (mode === "route") {
@@ -150,13 +151,17 @@ map.on('click', function(e) {
 
 });
 
-// ===== CLEAR ROUTE =====
-function clearRoute() {
-  routePoints = [];
+// ===== CLEAR EVERYTHING =====
+function clearAll() {
 
-  if (routeLine) {
-    map.removeLayer(routeLine);
-  }
+  // remove waypoints
+  waypoints.forEach(m => map.removeLayer(m));
+  waypoints = [];
+
+  // remove route
+  routePoints = [];
+  if (routeLine) map.removeLayer(routeLine);
+
 }
 
 </script>
