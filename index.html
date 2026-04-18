@@ -55,8 +55,10 @@ var map = L.map('map').setView([-33.9, 18.4], 7);
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
 // ===== ICONS =====
+
+// REAL BOAT ICON (fixed)
 var boatIcon = L.divIcon({
-  html: '<img src="https://cdn-icons-png.flaticon.com/512/1995/1995574.png" class="boat-icon" id="boat">',
+  html: '<img src="https://upload.wikimedia.org/wikipedia/commons/3/3a/Boat_icon.png" class="boat-icon" id="boat">',
   iconSize: [40, 40],
   className: ''
 });
@@ -101,7 +103,6 @@ function startTracking() {
       heading = pos.coords.heading;
     }
 
-    // CREATE / UPDATE BOAT
     if (!gpsMarker) {
       gpsMarker = L.marker([lat, lon], {icon: boatIcon}).addTo(map);
     } else {
@@ -131,7 +132,7 @@ function startTracking() {
   });
 }
 
-// ===== MANUAL ROUTE =====
+// ===== ROUTE =====
 var routePoints = [];
 var routeLine;
 var startMarker;
@@ -144,11 +145,13 @@ map.on('click', function(e) {
   if (routeLine) map.removeLayer(routeLine);
   routeLine = L.polyline(routePoints, {color:'blue'}).addTo(map);
 
+  // START
   if (routePoints.length === 1) {
     startMarker = L.marker(e.latlng, {icon: startIcon}).addTo(map)
       .bindPopup("START");
   }
 
+  // FINISH + ETA
   if (routePoints.length > 1) {
 
     if (endMarker) map.removeLayer(endMarker);
@@ -157,12 +160,14 @@ map.on('click', function(e) {
 
     var distance = calculateDistance(routePoints);
 
-    var etaText = "No speed";
+    var etaText;
 
     if (speed > 1) {
       var eta = distance / speed;
       var minutes = Math.round(eta * 60);
       etaText = minutes + " min";
+    } else {
+      etaText = "Waiting for speed...";
     }
 
     endMarker = L.marker(last, {icon: finishIcon}).addTo(map)
